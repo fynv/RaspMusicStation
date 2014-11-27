@@ -3,7 +3,7 @@
 
 Tools for setting-up Raspberry Pi as a music server which can be controlled from an Android device through Wifi
 
-本项目旨在开发一组工具，用来树梅派设置为一个可以从安卓设备通过Wifi进行远程遥控的音乐服务器。
+本项目旨在开发一组工具，用来将树梅派设置为一个可以从安卓设备通过Wifi进行远程遥控的音乐服务器。
 
 * Hardware Assumptions 硬件
 
