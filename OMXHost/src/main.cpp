@@ -43,6 +43,7 @@ pid_t LaunchChild (FILE* &masterWriteStream, FILE* &masterReadStream)
 
 int main()
 {
+  system("omxplayer /home/pi/sound/start.wav");
   //socket
   FeiSocketSever server(PORT);
   if (!server.IsValid()) return -1;
@@ -79,8 +80,18 @@ int main()
       sscanf(buffer,"%s",command);
       string s_command=command;
 
-      if (s_command=="Reboot") system("sudo reboot");
-      else if (s_command=="Shutdown") system("sudo halt -p");
+      if (s_command=="Reboot") 
+      {
+        system("omxplayer /home/pi/sound/reboot.wav");
+        system("sudo reboot");
+        return 0;
+      }
+      else if (s_command=="Shutdown") 
+      {
+        system("omxplayer /home/pi/sound/shutdown.wav");
+        system("sudo halt -p");
+        return 0;
+      }
      
       else if (s_command=="PlayURL" || s_command=="Quit" || s_command=="Stop")
       {
@@ -108,6 +119,7 @@ int main()
         }
         else if (s_command=="PlayURL")
         {
+          system("omxplayer /home/pi/sound/beep.mp3");
           char* p_url=buffer+8;
           pid=LaunchChild(fout,fin);    
           if (pid==0)
