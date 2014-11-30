@@ -1,6 +1,7 @@
 package com.example.omxremotecontroller;
 
 import java.io.IOException;
+
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -30,6 +31,8 @@ public class MainActivity extends ActionBarActivity {
 
 	private String m_host;
 	private String m_home_page;
+	private Thread m_commandThread;
+	private Boolean m_commandThreadRunning=false;
 	
 	private void SendCommand(String cmd)
 	{
@@ -54,15 +57,40 @@ public class MainActivity extends ActionBarActivity {
 			 }
 	}
 	
+	void RunCommandThread(Runnable runnable)
+	{
+		if (m_commandThreadRunning)
+		{
+			m_commandThread.interrupt();
+			m_commandThreadRunning=false;
+		}
+		m_commandThread=new Thread(runnable)
+		{
+			 public void run()
+			 {
+				 m_commandThreadRunning=true;
+				 super.run();
+				 m_commandThreadRunning=false;
+			 }
+		};
+		m_commandThread.start();
+	}
+	
+	class PlayURLRunnable implements Runnable
+	{
+		private String m_url;
+		public PlayURLRunnable(String url){
+			m_url=url;
+		}
+		public void run(){
+			SendCommand("PlayURL "+m_url);	
+		}		  	
+	}	
+	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
-		
-		if (android.os.Build.VERSION.SDK_INT > 9) {
-		    StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
-		    StrictMode.setThreadPolicy(policy);
-		}
 		
 		SharedPreferences settings = getSharedPreferences("OMXRemoteController", 0);  
 		m_host = settings.getString("Host", "192.168.10.3");
@@ -101,9 +129,12 @@ public class MainActivity extends ActionBarActivity {
       
       Button btnStop= (Button) findViewById(R.id.btnStop);
 	  btnStop.setOnClickListener(new View.OnClickListener (){
-				  public void onClick(View v){
-					  SendCommand("Stop");
-					  					  
+		  		 public void onClick(View v){
+			  		RunCommandThread(new Runnable(){
+			  			public void run(){
+			  				SendCommand("Stop");
+			  			}		  			
+			  		});					  					  
 			  }
 		  }	  
 	  ); 
@@ -129,7 +160,11 @@ public class MainActivity extends ActionBarActivity {
       Button btnVolDown= (Button) findViewById(R.id.btnVolDown);
       btnVolDown.setOnClickListener(new View.OnClickListener (){
 				  public void onClick(View v){
-					  SendCommand("VolDown");		  
+					  RunCommandThread(new Runnable(){
+				  			public void run(){
+				  				SendCommand("VolDown");
+				  			}		  			
+				  		});				  
 				  }
 		  }	  
 	  ); 
@@ -137,7 +172,11 @@ public class MainActivity extends ActionBarActivity {
       Button btnVolUp= (Button) findViewById(R.id.btnVolUp);
       btnVolUp.setOnClickListener(new View.OnClickListener (){
 				  public void onClick(View v){
-					  SendCommand("VolUp");		  
+					  RunCommandThread(new Runnable(){
+				  			public void run(){
+				  				SendCommand("VolUp");	
+				  			}		  			
+				  		});							  	  
 				  }
 		  }	  
 	  ); 
@@ -145,7 +184,11 @@ public class MainActivity extends ActionBarActivity {
       Button btnReboot= (Button) findViewById(R.id.btnReboot);
       btnReboot.setOnClickListener(new View.OnClickListener (){
 				  public void onClick(View v){
-					  SendCommand("Reboot");		  
+					  RunCommandThread(new Runnable(){
+				  			public void run(){
+				  				SendCommand("Reboot");		
+				  			}		  			
+				  		});							  	  
 				  }
 		  }	  
 	  ); 
@@ -153,7 +196,11 @@ public class MainActivity extends ActionBarActivity {
       Button btnShutdown= (Button) findViewById(R.id.btnShutdown);
       btnShutdown.setOnClickListener(new View.OnClickListener (){
 				  public void onClick(View v){
-					  SendCommand("Shutdown");		  
+					  RunCommandThread(new Runnable(){
+				  			public void run(){
+				  				SendCommand("Shutdown");		
+				  			}		  			
+				  		});							  
 				  }
 		  }	  
 	  ); 
@@ -183,8 +230,8 @@ public class MainActivity extends ActionBarActivity {
       myWebView.setWebViewClient(new WebViewClient(){       
           public boolean shouldOverrideUrlLoading(WebView view, String url) {       
 	              if (url.indexOf(".mp3")>0)
-	              {    
-	            	  SendCommand("PlayURL "+url);
+	              {   
+	            	  RunCommandThread(new PlayURLRunnable(url));		            	  
 	                  return true; 
 	              }
 	              return false;

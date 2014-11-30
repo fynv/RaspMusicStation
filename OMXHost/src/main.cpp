@@ -5,12 +5,13 @@
 #include <sys/types.h>
 #include <string>
 #include <sys/wait.h>
+#include "pthread.h"
 
 #include "FeiSocket.h"
 #define PORT 30001
 
 using namespace std;
-
+ 
 pid_t LaunchChild (FILE* &masterWriteStream, FILE* &masterReadStream)
 {
   pid_t pid;
@@ -26,19 +27,44 @@ pid_t LaunchChild (FILE* &masterWriteStream, FILE* &masterReadStream)
     dup2(mypipe2[1], STDOUT_FILENO);
     close(mypipe[0]);
     close(mypipe[1]);
+    setvbuf(stdout, NULL, _IONBF, 0);
   }
   else
   {
     close(mypipe[0]);
     close(mypipe2[1]);
     masterWriteStream= fdopen (mypipe[1], "w");    
-    setbuf(masterWriteStream,(char*)0);
+    setbuf(masterWriteStream,0);
     masterReadStream= fdopen(mypipe2[0],"r");
-    setbuf(masterReadStream,(char*)0);
   }  
   
   return pid;
 
+}
+
+struct PlayBackMonitorParam
+{
+  FILE* m_fin;
+  bool m_isRunning;
+};
+
+void* PlayBackMonitor(void* info)
+{
+  PlayBackMonitorParam* param=(PlayBackMonitorParam*)(info);
+  FILE *fin=param->m_fin;
+  param->m_isRunning=true;
+
+  char buffer[1024];
+  while (1)
+  {
+     if (!fgets(buffer,1024,fin)) break;
+     printf("OMXPlayer: %s",buffer);
+     buffer[15]=0;
+     string message=buffer;
+     if (message=="have a nice day") break;
+  }
+  system("omxplayer /home/pi/sound/beep.mp3");  
+  param->m_isRunning=false;  
 }
 
 int main()
@@ -53,6 +79,10 @@ int main()
   FILE *fout=0;
   FILE *fin=0;
   pid_t pid;
+
+  pthread_t PlayBackMonitorThreadID;
+  PlayBackMonitorParam pbtParam;
+  pbtParam.m_isRunning=false;
 
   while (1)
   {
@@ -126,6 +156,13 @@ int main()
           {
             execlp("omxplayer","omxplayer", p_url,0);
           }
+          // start play-back monitor thread
+          if (pbtParam.m_isRunning)
+              pthread_cancel(PlayBackMonitorThreadID);
+          pbtParam.m_fin=fin;
+          pbtParam.m_isRunning=false;          
+          int threadError = pthread_create(&PlayBackMonitorThreadID,NULL,PlayBackMonitor,&pbtParam);
+          
         }
       }
       else if (s_command=="VolDown" || s_command=="VolUp")
