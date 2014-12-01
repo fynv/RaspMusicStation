@@ -11,7 +11,7 @@
 #define PORT 30001
 
 using namespace std;
- 
+
 pid_t LaunchChild (FILE* &masterWriteStream, FILE* &masterReadStream)
 {
   pid_t pid;
@@ -42,13 +42,14 @@ pid_t LaunchChild (FILE* &masterWriteStream, FILE* &masterReadStream)
 
 }
 
+
 struct PlayBackMonitorParam
 {
   FILE* m_fin;
   bool m_isRunning;
 };
 
-void* PlayBackMonitor(void* info)
+void* CommandListenerProcess_PlayBackMonitorThread(void* info)
 {
   PlayBackMonitorParam* param=(PlayBackMonitorParam*)(info);
   FILE *fin=param->m_fin;
@@ -67,15 +68,11 @@ void* PlayBackMonitor(void* info)
   param->m_isRunning=false;  
 }
 
-int main()
+
+int CommandListenerProcess()
 {
   system("omxplayer /home/pi/sound/start.wav");
-  //socket
-  FeiSocketSever server(PORT);
-  if (!server.IsValid()) return -1;
-
-  //process com
-  char buffer[1024];
+  
   FILE *fout=0;
   FILE *fin=0;
   pid_t pid;
@@ -86,45 +83,31 @@ int main()
 
   while (1)
   {
-    FeiSocketSession se=server.GetSession();
-    if (!se.IsValid()) continue;
-    printf("New connection established.\n");
-  
-    while (1)
+    char buffer[4096];
+    char command[256];
+    gets(buffer);
+    char *pos;
+    if ((pos=strchr(buffer, '\n')) != NULL)
+      *pos = '\0';
+    printf("Command recieved: %s\n", buffer);
+    sscanf(buffer,"%s",command);
+    string s_command=command;
+    
+    if (s_command=="Reboot") 
     {
-      char buffer[4096];
-      char command[256];
-      int len;
-      len=se.Recieve(buffer,4096);
-      if (len<=0) 
-      {
-        se.Close();
-        break;
-      }
-      buffer[len]=0;
-      char *pos;
-      if ((pos=strchr(buffer, '\n')) != NULL)
-         *pos = '\0';
-
-      printf("Command recieved: %s\n", buffer);
-      sscanf(buffer,"%s",command);
-      string s_command=command;
-
-      if (s_command=="Reboot") 
-      {
-        system("omxplayer /home/pi/sound/reboot.wav");
-        system("sudo reboot");
-        return 0;
-      }
-      else if (s_command=="Shutdown") 
-      {
-        system("omxplayer /home/pi/sound/shutdown.wav");
-        system("sudo halt -p");
-        return 0;
-      }
-     
-      else if (s_command=="PlayURL" || s_command=="Quit" || s_command=="Stop")
-      {
+      system("omxplayer /home/pi/sound/reboot.wav");
+      system("sudo reboot");
+      return 0;
+    }
+    else if (s_command=="Shutdown") 
+    {
+      system("omxplayer /home/pi/sound/shutdown.wav");
+      system("sudo halt -p");
+      return 0;
+    }
+    
+    else if (s_command=="PlayURL" || s_command=="Quit" || s_command=="Stop")
+    {
         if (fout) 
         {
           int status;
@@ -143,7 +126,6 @@ int main()
         } 
         if (s_command=="Quit") 
         {
-          se.Close();
           printf("Quit..\n");
           return 0;
         }
@@ -161,12 +143,12 @@ int main()
               pthread_cancel(PlayBackMonitorThreadID);
           pbtParam.m_fin=fin;
           pbtParam.m_isRunning=false;          
-          int threadError = pthread_create(&PlayBackMonitorThreadID,NULL,PlayBackMonitor,&pbtParam);
+          int threadError = pthread_create(&PlayBackMonitorThreadID,NULL,CommandListenerProcess_PlayBackMonitorThread,&pbtParam);
           
         }
-      }
-      else if (s_command=="VolDown" || s_command=="VolUp")
-      {
+    }
+    else if (s_command=="VolDown" || s_command=="VolUp")
+    {
         if (fout) 
         {
           int status;
@@ -179,13 +161,110 @@ int main()
               fputc('+',fout);
           }
          }
-      }
-      
-    }
-    printf("Disconnected.\n");    
+    }  
+
   }
 
   return 0;
 }
 
+void* HostProcess_CommandFeedBackThread(void* info)
+{
+  FILE* fin=(FILE*)info;
+  char buffer[4096];
+  while (1)
+  {
+    fgets(buffer,4096, fin);
+    printf("%s",buffer);
+  }
+
+}
+
+void SendCommand(const char* cmd, FILE* fp,  pthread_mutex_t lock)
+{
+   pthread_mutex_lock(&lock);  
+   fputs(cmd,fp);   
+   pthread_mutex_unlock(&lock);  
+}
+
+struct SenderInfo
+{
+  FILE* fp;
+  pthread_mutex_t lock;
+};
+
+void* HostProcess_KeyBoardInputThread(void* info)
+{
+  SenderInfo* sinfo=(SenderInfo*)info;
+  char buffer[4096];
+  while(1)
+  {
+    gets(buffer);
+    sprintf(buffer,"%s\n",buffer);
+    SendCommand(buffer,sinfo->fp,sinfo->lock);
+  }
+}
+
+int HostProcess(pid_t listenerID, FILE* fout, FILE* fin)
+{
+  pthread_t CommandFeedBackThread;
+  int threadError = pthread_create(&CommandFeedBackThread,NULL,HostProcess_CommandFeedBackThread,fin);
+
+  pthread_t KeyBoardInputThread;
+  pthread_mutex_t cmd_lock;
+  pthread_mutex_init(&cmd_lock,NULL);  
+  
+  SenderInfo sinfo;
+  sinfo.fp=fout;
+  sinfo.lock=cmd_lock;
+
+  threadError = pthread_create(&KeyBoardInputThread,NULL,HostProcess_KeyBoardInputThread,&sinfo);
+
+  FeiSocketSever server(PORT);
+  if (!server.IsValid())
+  {
+    SendCommand("Quit\n",fout, cmd_lock);
+    return -1;
+  }
+
+  while (1)
+  {
+    FeiSocketSession se=server.GetSession();
+    if (!se.IsValid()) continue;
+    printf("New socket connection established.\n");
+
+    while (1)
+    {
+      char buffer[4096];
+      int len;
+      len=se.Recieve(buffer,4096);
+      if (len<=0) 
+      {
+        se.Close();
+        break;
+      }
+      buffer[len]=0;
+      SendCommand(buffer,fout, cmd_lock);
+    }
+    printf("Disconnected.\n");    
+  }
+  pthread_mutex_destroy(&cmd_lock);  
+  
+  return 0;
+}
+
+int main()
+{
+  //return CommandListenerProcess();
+  FILE *fout=0;
+  FILE *fin=0;
+  pid_t pid= LaunchChild(fout,fin);
+
+   if (pid==0)
+   {
+     return CommandListenerProcess();
+   }
+   else return HostProcess(pid, fout, fin);
+    
+}
 
