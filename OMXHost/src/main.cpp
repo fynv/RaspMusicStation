@@ -214,11 +214,11 @@ int HostProcess(pid_t listenerID, FILE* fout, FILE* fin)
   pthread_mutex_t cmd_lock;
   pthread_mutex_init(&cmd_lock,NULL);  
   
-  SenderInfo sinfo;
+  /*SenderInfo sinfo;
   sinfo.fp=fout;
   sinfo.lock=cmd_lock;
 
-  threadError = pthread_create(&KeyBoardInputThread,NULL,HostProcess_KeyBoardInputThread,&sinfo);
+  threadError = pthread_create(&KeyBoardInputThread,NULL,HostProcess_KeyBoardInputThread,&sinfo);*/
 
   FeiSocketSever server(PORT);
   if (!server.IsValid())
