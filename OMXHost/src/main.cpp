@@ -117,6 +117,8 @@ int CommandListenerProcess()
             printf("Child-process is active.\n");
             fputc('q',fout);
             wait(0);
+            void* ret;
+            pthread_join(PlayBackMonitorThreadID,&ret);            
           }
           else printf("Child-process is not active.\n");
           fclose(fin);
@@ -139,8 +141,6 @@ int CommandListenerProcess()
             execlp("omxplayer","omxplayer", p_url,0);
           }
           // start play-back monitor thread
-          if (pbtParam.m_isRunning)
-              pthread_cancel(PlayBackMonitorThreadID);
           pbtParam.m_fin=fin;
           pbtParam.m_isRunning=false;          
           int threadError = pthread_create(&PlayBackMonitorThreadID,NULL,CommandListenerProcess_PlayBackMonitorThread,&pbtParam);
@@ -172,11 +172,9 @@ void* HostProcess_CommandFeedBackThread(void* info)
 {
   FILE* fin=(FILE*)info;
   char buffer[4096];
-  while (1)
-  {
-    fgets(buffer,4096, fin);
+  while (fgets(buffer,4096, fin))
     printf("%s",buffer);
-  }
+  exit(0);
 
 }
 
