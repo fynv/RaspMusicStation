@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">RaspMusicStationClient</string>
+    <string name="action_settings">Settings</string>
+    <string name="btnPrevText">&lt;</string>
+    <string name="btnNextText">&gt;</string>
+    <string name="btnStopText">stop</string>
+    <string name="labelVol">Volume:</string>
+    <string name="btnRebootText">Reboot</string>
+    <string name="btnShutdownText">Shutdown</string>
+    <string name="labelHost">Host:</string>
+    <string name="labelHomePage">Home-page:</string>
+    <string name="btnSaveText">Save settings</string>
+    <string name="btnPlayCDText">PlayCD</string>
+    <string name="btnEjectText">Eject</string>
+
+</resources>
