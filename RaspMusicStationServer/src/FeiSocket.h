@@ -12,11 +12,18 @@ class FeiSocketSession
 {
   int _sock;
 public:
+  FeiSocketSession() : _sock(-1){}
   FeiSocketSession(int sock) : _sock(sock) {}
   bool IsValid() { return _sock!=-1; }
   bool Send(const void* data, int size);
   int Recieve(void* data, int maxSize);
   void Close();
+
+  FeiSocketSession& operator =(const FeiSocketSession& in)
+  {
+    _sock=in._sock;
+    return *this;
+  }
 
 };
 

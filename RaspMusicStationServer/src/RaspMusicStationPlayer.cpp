@@ -41,6 +41,7 @@ void* CDPlayBackMonitorThread(void* info)
      sprintf(feedBack,"CDPlayBack %s", buffer);
      SendFeedback(feedBack, param->m_fbstuff);
   }
+  SendFeedback("CDPlayBack Over", param->m_fbstuff);
   PlaySound("beep.mp3");
 }
 
@@ -79,7 +80,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
     if ((pos=strchr(buffer, '\n')) != NULL)
       *pos = '\0';
 
-    sscanf(buffer,"%s",command);
+    if (-1==sscanf(buffer,"%s",command)) continue;
     string s_command=command;
 
     if (s_command=="PlayURL" || s_command=="PlayCD" || s_command=="Stop" || s_command=="Quit")
@@ -91,7 +92,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
           if (result == 0)
           {
             fputc('q',slaveOut);
-            wait(0);
+            waitpid(pid,0,0);
             void* ret;
             pthread_join(PlayBackMonitorThreadID,&ret);            
           }
@@ -142,7 +143,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
           if (result == 0)
           {
             fputc('q',slaveOut);
-            wait(0);
+            waitpid(pid,0,0);
             void* ret;
             pthread_join(PlayBackMonitorThreadID,&ret);            
           }
@@ -187,8 +188,8 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
          execlp("/home/pi/omxcdplayer","omxcdplayer", "-l",0);
        }
        char buffer[4096];
-       fgets(buffer,4096,listIn);
-       SendFeedback(buffer, fbstuff);
+       while (fgets(buffer,4096,listIn))
+         SendFeedback(buffer, fbstuff);
     } 
 
   }

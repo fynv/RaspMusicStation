@@ -74,7 +74,7 @@ void PlaySound(const char* snd)
   }
   else
   {
-    wait(0);
+    waitpid(pid,0,0);
   }  
 }
 

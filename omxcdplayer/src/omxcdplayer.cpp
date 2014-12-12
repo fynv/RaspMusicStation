@@ -89,6 +89,7 @@ int PlayCD(int startTrack, bool showStatus, bool listMode,  FILE* fin, FILE* fou
   {
      char buffer[4096];
       int n=acd.GetTrackCount();
+      if (n<0) n=0;
       sprintf(buffer,"CDTrackInfo %d",n);
       int i;
       for (i=0;i<n;i++)
