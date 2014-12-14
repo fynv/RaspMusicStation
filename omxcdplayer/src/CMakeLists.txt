@@ -1,14 +1,16 @@
 cmake_minimum_required (VERSION 2.6)
 project (omxcdplayer)
 
-include_directories(/home/fei/pitools/piroot/usr/include 
-/home/fei/pitools/piroot/usr/include/interface/vcos/pthreads  
-/home/fei/pitools/piroot/usr/include/interface/vmcs_host/linux  
+include_directories(/usr/include 
+/opt/vc/include
+/opt/vc/include/interface/vcos/pthreads  
+/opt/vc/include/interface/vmcs_host/linux  
 ../libs/ilclient
 ../libs/vgfont
 .)
 
-link_directories(/home/fei/pitools/piroot/usr/lib
+link_directories(/usr/lib
+/opt/vc/lib
 ../libs/ilclient
 ../libs/vgfont
 )
