@@ -155,7 +155,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
         } 
         system("eject");
     }
-    else if (s_command=="VolDown" || s_command=="VolUp" || s_command=="NextTrack" || s_command=="PrevTrack")
+    else if (s_command=="VolDown" || s_command=="VolUp" || s_command=="NextTrack" || s_command=="PrevTrack" || s_command=="CurTrack")
     {
         if (slaveOut) 
         {
@@ -173,6 +173,8 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
                 fputc('<',slaveOut);
               else if (s_command=="NextTrack")
                 fputc('>',slaveOut);
+              else if (s_command=="CurTrack")
+                fputc('t',slaveOut);
             }
           }
          }

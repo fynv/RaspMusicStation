@@ -155,6 +155,15 @@ int PlayCD(int startTrack, bool showStatus, bool listMode,  FILE* fin, FILE* fou
     {
       cdParam.m_stuff.m_ShowStatus=!cdParam.m_stuff.m_ShowStatus;
     }
+    else if (cmd=='t' || cmd=='T')
+    {
+      if (cdParam.m_stuff.m_IsPlaying)
+      {
+        char buffer[256];
+        sprintf(buffer,"track %d",cdParam.m_trackID);
+        SendFeedback(buffer, fbstuff);
+      }
+    }
   }
 
   

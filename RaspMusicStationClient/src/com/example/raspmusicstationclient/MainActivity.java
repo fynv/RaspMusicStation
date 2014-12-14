@@ -9,6 +9,7 @@ import java.net.UnknownHostException;
 
 import android.support.v7.app.ActionBarActivity;
 import android.content.SharedPreferences;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -28,6 +29,7 @@ import android.widget.ProgressBar;
 import android.widget.TabHost;
 import android.widget.TabWidget;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class MainActivity extends ActionBarActivity {
 
@@ -236,6 +238,48 @@ public class MainActivity extends ActionBarActivity {
 			         return true;
 			}});
 	 
+	 private void WatchCDFeedBack(Socket clientSocket)
+	 {
+		 try{
+			 BufferedReader socketIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+				while(true)
+				{
+					String line=socketIn.readLine();
+					String[] strs=line.split(" "); 
+					if (strs.length<1) continue;
+					if (strs[0].equals("Over")) break;
+					else if(strs[0].equals("track"))
+					{
+						if (strs.length<2) continue;
+						//Log.i("CDPlayBack Track",line);
+						m_CurrentTrackID=Integer.valueOf(strs[1]);
+						Message notifyMsg = RefreshCDPlayHandler.obtainMessage(1, 0, 0, null) ;
+						RefreshCDPlayHandler.sendMessage(notifyMsg) ;
+					}
+					else if (strs[0].equals("sector"))
+					{
+						if (strs.length<2) continue;
+						//Log.i("CDPlayBack Sector",line);
+						m_CurrentSector=Integer.valueOf(strs[1]);
+						Message notifyMsg = RefreshCDPlayHandler.obtainMessage(2, 0, 0, null) ;
+						RefreshCDPlayHandler.sendMessage(notifyMsg) ;
+					}
+				}
+				clientSocket.close();
+		 }catch (NullPointerException e){
+			 e.printStackTrace();
+			 return;
+		 }catch (UnknownHostException e){
+			 e.printStackTrace();
+			 return;
+		 }catch (IOException e){
+			 e.printStackTrace();
+			 return;
+		 }   
+	  Message notifyMsg = RefreshCDPlayHandler.obtainMessage(3, 0, 0, null) ;
+	  RefreshCDPlayHandler.sendMessage(notifyMsg) ;
+	 }
+	 
 	 class PlayCDRunnable implements Runnable
 	 {
 		 private int m_trackID;
@@ -243,47 +287,14 @@ public class MainActivity extends ActionBarActivity {
 			 m_trackID=trackID;
 		 }
 		 public void run(){
-			 
 			  try{
-					Socket clientSocket=SendCommandKeep("PlayCD "+String.valueOf(m_trackID));					
-					BufferedReader socketIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-					while(true)
-					{
-						String line=socketIn.readLine();
-						String[] strs=line.split(" "); 
-						if (strs.length<1) continue;
-						if (strs[0].equals("Over")) break;
-						else if(strs[0].equals("track"))
-						{
-							if (strs.length<2) continue;
-							//Log.i("CDPlayBack Track",line);
-							m_CurrentTrackID=Integer.valueOf(strs[1]);
-							Message notifyMsg = RefreshCDPlayHandler.obtainMessage(1, 0, 0, null) ;
-							RefreshCDPlayHandler.sendMessage(notifyMsg) ;
-						}
-						else if (strs[0].equals("sector"))
-						{
-							if (strs.length<2) continue;
-							//Log.i("CDPlayBack Sector",line);
-							m_CurrentSector=Integer.valueOf(strs[1]);
-							Message notifyMsg = RefreshCDPlayHandler.obtainMessage(2, 0, 0, null) ;
-							RefreshCDPlayHandler.sendMessage(notifyMsg) ;
-						}
-					}
-					clientSocket.close();			
+				  Socket clientSocket=SendCommandKeep("PlayCD "+String.valueOf(m_trackID));	
+			      WatchCDFeedBack(clientSocket);
 				 
 				 }catch (NullPointerException e){
 					 e.printStackTrace();
 					 return;
-				 }catch (UnknownHostException e){
-					 e.printStackTrace();
-					 return;
-				 }catch (IOException e){
-					 e.printStackTrace();
-					 return;
-				 }   
-			  Message notifyMsg = RefreshCDPlayHandler.obtainMessage(3, 0, 0, null) ;
-			  RefreshCDPlayHandler.sendMessage(notifyMsg) ;
+				 }
 			  
 		 }		
 	 }
@@ -300,6 +311,34 @@ public class MainActivity extends ActionBarActivity {
         }
 		 
 		 RunPlayThread(new PlayCDRunnable(trackID));		
+	 }
+	 
+	 private void ResetCDWatch()
+	 {
+		 if (!m_playThreadRunning)
+		 {
+			 RunPlayThread( new Runnable(){
+		  			public void run(){
+		  				 try{
+		  					  Socket clientSocket=SendCommandKeep("ResetCDWatch");	
+		  					  BufferedReader socketIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+						      String line=socketIn.readLine();
+						      if (line.equals("playing"))
+						    	  WatchCDFeedBack(clientSocket);
+		  					 
+		  					 }catch (NullPointerException e){
+		  						 e.printStackTrace();
+		  						 return;
+		  					 }catch (UnknownHostException e){
+		  						 e.printStackTrace();
+		  						 return;
+		  					 }catch (IOException e){
+		  						 e.printStackTrace();
+		  						 return;
+		  					 }   
+		  			}	
+			 });	
+		 }
 	 }
 	
 	@Override
@@ -352,6 +391,7 @@ public class MainActivity extends ActionBarActivity {
 		  				RefreshCDList();
 		  			}		  			
 		  		});	
+            	ResetCDWatch();
             }
           }  
       });  
@@ -548,7 +588,8 @@ public class MainActivity extends ActionBarActivity {
 				  			public void run(){
 				  				RefreshCDList();
 				  			}		  			
-				  		});							  
+				  		});	
+					  ResetCDWatch();
 				  }
 		  }	  
 	  ); 
@@ -594,4 +635,7 @@ public class MainActivity extends ActionBarActivity {
 		}
 		return super.onOptionsItemSelected(item);
 	}
+	//@Override
+	//public void onConfigurationChanged(Configuration newConfig) {}
+	
 }

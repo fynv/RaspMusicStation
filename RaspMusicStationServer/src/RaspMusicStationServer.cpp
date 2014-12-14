@@ -8,6 +8,7 @@ int CommandListenerProcess(FILE *fin, FILE* fout);
 
 struct FeedBackSocket
 {
+  bool m_resetSocket;
   FeiSocketSession m_se;
   sem_t m_start_sem;
   sem_t m_finish_sem;
@@ -53,9 +54,20 @@ void* HostProcess_CommandFeedBackThread(void* info)
         sem_wait(&tInfo->m_CDStatusSocket.m_start_sem);
         readingCDFeedBack=true;
       }
+      if (tInfo->m_CDStatusSocket.m_resetSocket)
+      {
+        readingCDFeedBack=false;
+        FeiSocketSession invalid;
+        tInfo->m_CDStatusSocket.m_se=invalid;
+        sem_post(&tInfo->m_CDStatusSocket.m_finish_sem);        
+        tInfo->m_CDStatusSocket.m_resetSocket=false;
+        sem_wait(&tInfo->m_CDStatusSocket.m_start_sem);
+        readingCDFeedBack=true;        
+      }
       char* pinfo=buffer+11;
       int len=strlen(pinfo);
       pinfo[len]='\n';
+
       pinfo[len+1]='\0';      
       tInfo->m_CDStatusSocket.m_se.Send(pinfo,len+1);
       char command2[256];
@@ -63,8 +75,10 @@ void* HostProcess_CommandFeedBackThread(void* info)
       string s_command2=command2;
       if (s_command2=="Over")
       {
-        sem_post(&tInfo->m_CDStatusSocket.m_finish_sem);
         readingCDFeedBack=false;
+        FeiSocketSession invalid;
+        tInfo->m_CDStatusSocket.m_se=invalid;
+        sem_post(&tInfo->m_CDStatusSocket.m_finish_sem);        
       }      
     }
   }
@@ -90,6 +104,12 @@ int HostProcess(pid_t listenerID, FILE* fout, FILE* fin)
   pthread_t KeyBoardInputThread;
   pthread_mutex_t cmd_lock;
   pthread_mutex_init(&cmd_lock,NULL);  
+
+  sem_init(&cfbInfo.m_CDStatusSocket.m_finish_sem,0,1);  
+  sem_init(&cfbInfo.m_CDStatusSocket.m_start_sem,0,0);  
+
+  sem_init(&cfbInfo.m_CDListSocket.m_finish_sem,0,0);  
+  sem_init(&cfbInfo.m_CDListSocket.m_start_sem,0,0);  
   
   FeiSocketSever server(PORT);
   if (!server.IsValid())
@@ -135,13 +155,29 @@ int HostProcess(pid_t listenerID, FILE* fout, FILE* fin)
           return 0;
         }
       }
+      else if (s_command=="ResetCDWatch")
+      {
+        if (cfbInfo.m_CDStatusSocket.m_se.IsValid())
+        {
+          se.Send("playing\n",8);
+          cfbInfo.m_CDStatusSocket.m_resetSocket=true;
+          sem_wait(&cfbInfo.m_CDStatusSocket.m_finish_sem);
+          cfbInfo.m_CDStatusSocket.m_se=se;
+          SendCommand("CurTrack",fout, cmd_lock);
+          sem_post(&cfbInfo.m_CDStatusSocket.m_start_sem);
+        }
+        else
+        {
+          se.Send("notplaying\n",11);
+        }
+      }      
       else 
       {
         SendCommand(buffer,fout, cmd_lock);
         if (s_command=="PlayCD")
         {
-          if (cfbInfo.m_CDStatusSocket.m_se.IsValid())
-            sem_wait(&cfbInfo.m_CDStatusSocket.m_finish_sem);
+          sem_wait(&cfbInfo.m_CDStatusSocket.m_finish_sem);
+          cfbInfo.m_CDStatusSocket.m_resetSocket=false;
           cfbInfo.m_CDStatusSocket.m_se=se;
           sem_post(&cfbInfo.m_CDStatusSocket.m_start_sem);
         }
@@ -150,7 +186,8 @@ int HostProcess(pid_t listenerID, FILE* fout, FILE* fin)
           cfbInfo.m_CDListSocket.m_se=se;
           sem_post(&cfbInfo.m_CDListSocket.m_start_sem);
           sem_wait(&cfbInfo.m_CDListSocket.m_finish_sem);
-        }       
+        } 
+       
       }
     }
   }
