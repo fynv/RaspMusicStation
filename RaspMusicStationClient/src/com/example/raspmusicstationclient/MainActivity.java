@@ -325,6 +325,8 @@ public class MainActivity extends ActionBarActivity {
 						      String line=socketIn.readLine();
 						      if (line.equals("playing"))
 						    	  WatchCDFeedBack(clientSocket);
+						      else 
+						    	  clientSocket.close();
 		  					 
 		  					 }catch (NullPointerException e){
 		  						 e.printStackTrace();
