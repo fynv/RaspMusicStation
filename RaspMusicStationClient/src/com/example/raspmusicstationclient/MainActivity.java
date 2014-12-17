@@ -17,6 +17,9 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.LinearInterpolator;
+import android.view.animation.RotateAnimation;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -24,6 +27,7 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TabHost;
@@ -48,8 +52,7 @@ public class MainActivity extends ActionBarActivity {
 	private int[] m_CDTrackSectors;
 	
 	private int m_CurrentTrackID=-1;
-	private int m_CurrentSector=0;
-	
+	private int m_CurrentSector=0;	
 
 	private Socket SendCommandKeep(String cmd)
 	{
@@ -109,8 +112,15 @@ public class MainActivity extends ActionBarActivity {
 	{
 		if (m_playThreadRunning)
 		{
-			m_playThread.interrupt();
 			m_playThreadRunning=false;
+			try
+			{
+				m_playThread.join();
+			}
+			catch (InterruptedException e)
+			{
+				
+			}
 		}
 		m_playThread=new Thread(runnable)
 		{
@@ -153,6 +163,7 @@ public class MainActivity extends ActionBarActivity {
    	    ListView listTracks= (ListView) findViewById(R.id.listTracks);
    	    listTracks.setAdapter(new ArrayAdapter<String>(MainActivity.this,
              android.R.layout.simple_list_item_1, trackList));
+   	    listTracks.setSelection(m_CurrentTrackID);
 		
 	}
 	
@@ -214,6 +225,19 @@ public class MainActivity extends ActionBarActivity {
 	 private Handler RefreshCDPlayHandler = new Handler(new Handler.Callback() {
 			public boolean handleMessage(Message msg) {
 			         switch (msg.what) {
+			         case 0: // start watching
+			         {
+			        	 ImageView iv= (ImageView) findViewById(R.id.cdImage);
+			        	 iv.setImageResource(R.drawable.cdrotate);
+			        	 RotateAnimation cd_animation;
+			             cd_animation=new RotateAnimation(0f,360f,Animation.RELATIVE_TO_SELF, 0.5f,Animation.RELATIVE_TO_SELF,0.5f); 
+			             cd_animation.setDuration(1000);
+			             cd_animation.setInterpolator(new LinearInterpolator());
+			             cd_animation.setRepeatCount(-1);
+			             
+			             iv.startAnimation(cd_animation);     
+			             break;
+			         }			        	 
 			        case 1: // track info
 			        {
 			        	UpdateTrackList();			        	
@@ -230,6 +254,10 @@ public class MainActivity extends ActionBarActivity {
 			        	m_CurrentSector=0;
 			        	UpdateTrackList();	
 			        	UpdateCDProgress();
+			        	
+			        	ImageView iv= (ImageView) findViewById(R.id.cdImage);
+			        	iv.clearAnimation();
+			        	iv.setImageResource(R.drawable.cdstop);
 			        	break;
 			        }
 			      default:
@@ -241,28 +269,38 @@ public class MainActivity extends ActionBarActivity {
 	 private void WatchCDFeedBack(Socket clientSocket)
 	 {
 		 try{
+			 {
+				 Message notifyMsg = RefreshCDPlayHandler.obtainMessage(0, 0, 0, null) ;
+				 RefreshCDPlayHandler.sendMessage(notifyMsg) ;
+			}
 			 BufferedReader socketIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-				while(true)
+			  	while(true)
 				{
 					String line=socketIn.readLine();
 					String[] strs=line.split(" "); 
 					if (strs.length<1) continue;
+					if (!m_playThreadRunning) break;
+					
 					if (strs[0].equals("Over")) break;
 					else if(strs[0].equals("track"))
 					{
 						if (strs.length<2) continue;
 						//Log.i("CDPlayBack Track",line);
 						m_CurrentTrackID=Integer.valueOf(strs[1]);
-						Message notifyMsg = RefreshCDPlayHandler.obtainMessage(1, 0, 0, null) ;
-						RefreshCDPlayHandler.sendMessage(notifyMsg) ;
+						{
+							Message notifyMsg = RefreshCDPlayHandler.obtainMessage(1, 0, 0, null) ;
+							RefreshCDPlayHandler.sendMessage(notifyMsg) ;
+						}
 					}
 					else if (strs[0].equals("sector"))
 					{
 						if (strs.length<2) continue;
 						//Log.i("CDPlayBack Sector",line);
 						m_CurrentSector=Integer.valueOf(strs[1]);
-						Message notifyMsg = RefreshCDPlayHandler.obtainMessage(2, 0, 0, null) ;
-						RefreshCDPlayHandler.sendMessage(notifyMsg) ;
+						{
+							Message notifyMsg = RefreshCDPlayHandler.obtainMessage(2, 0, 0, null) ;
+							RefreshCDPlayHandler.sendMessage(notifyMsg) ;
+						}
 					}
 				}
 				clientSocket.close();
@@ -276,8 +314,10 @@ public class MainActivity extends ActionBarActivity {
 			 e.printStackTrace();
 			 return;
 		 }   
-	  Message notifyMsg = RefreshCDPlayHandler.obtainMessage(3, 0, 0, null) ;
-	  RefreshCDPlayHandler.sendMessage(notifyMsg) ;
+		 {
+			  Message notifyMsg = RefreshCDPlayHandler.obtainMessage(3, 0, 0, null) ;
+			  RefreshCDPlayHandler.sendMessage(notifyMsg) ;
+		 }
 	 }
 	 
 	 class PlayCDRunnable implements Runnable
@@ -362,16 +402,16 @@ public class MainActivity extends ActionBarActivity {
 		TabHost tabHost = (TabHost) findViewById(R.id.tabhost);  
 		tabHost.setup();  
 		
-	  tabHost.addTab(tabHost.newTabSpec("tab01").setIndicator("Web")
+	  tabHost.addTab(tabHost.newTabSpec("tab01").setIndicator("",getResources().getDrawable(R.drawable.web))
 			   .setContent(R.id.tab01));  
   
-      tabHost.addTab(tabHost.newTabSpec("tab02").setIndicator("Storage")  
+      tabHost.addTab(tabHost.newTabSpec("tab02").setIndicator("",getResources().getDrawable(R.drawable.storage))  
                 .setContent(R.id.tab02));  
       
-      tabHost.addTab(tabHost.newTabSpec("tab03").setIndicator("CD")  
+      tabHost.addTab(tabHost.newTabSpec("tab03").setIndicator("",getResources().getDrawable(R.drawable.cd)) 
               .setContent(R.id.tab03)); 
       
-      tabHost.addTab(tabHost.newTabSpec("tab04").setIndicator("System")  
+      tabHost.addTab(tabHost.newTabSpec("tab04").setIndicator("",getResources().getDrawable(R.drawable.settings))   
               .setContent(R.id.tab04)); 
       
       TabWidget tabs=tabHost.getTabWidget(); 
@@ -615,14 +655,13 @@ public class MainActivity extends ActionBarActivity {
       );   
       
       myWebView.loadUrl(m_home_page);
-      
 		
 	}
 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
-		getMenuInflater().inflate(R.menu.main, menu);
+		//getMenuInflater().inflate(R.menu.main, menu);
 		return true;
 	}
 
