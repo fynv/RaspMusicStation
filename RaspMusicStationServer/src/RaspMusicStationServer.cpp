@@ -196,8 +196,35 @@ int HostProcess(pid_t listenerID, FILE* fout, FILE* fin)
   return 0;
 }
 
+#include "GetIP.h"
+
+void PlayIP(const unsigned char ip[4])
+{
+  FILE *fout=0;
+  FILE *fin=0;
+  pid_t pid;
+  pid=LaunchChild(fout,fin); 
+  if (pid==0)
+  {
+    char strings[4][4];
+	sprintf(strings[0],"%d",ip[0]);
+	sprintf(strings[1],"%d",ip[1]);
+	sprintf(strings[2],"%d",ip[2]);
+	sprintf(strings[3],"%d",ip[3]);	
+    execlp("/home/pi/omxbyteplayer","omxbyteplayer", strings[0],strings[1],strings[2],strings[3],0);
+  }
+  else
+  {
+    waitpid(pid,0,0);
+  }  
+}
+
 int main()
 {
+  unsigned char ip[4];
+  if (GetIP(ip))
+	  PlayIP(ip);
+
   PlaySound("start.mp3");
   //return CommandListenerProcess(stdout,stdin);
   FILE *fout=0;
