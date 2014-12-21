@@ -153,7 +153,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
           slaveOut=0;
           pbstatus=NO;
         } 
-        system("eject");
+        system("eject /dev/sr0");
     }
     else if (s_command=="VolDown" || s_command=="VolUp" || s_command=="NextTrack" || s_command=="PrevTrack" || s_command=="CurTrack")
     {
