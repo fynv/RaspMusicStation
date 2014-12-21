@@ -15,5 +15,7 @@
     <string name="btnPlayCDText">PlayCD</string>
     <string name="btnEjectText">Eject</string>
     <string name="btnRefreshCDText">Refresh</string>
+    <string name="btnListenIPText">Listen IP</string>
+    <string name="btnListenIPOn">Listening</string>
 
 </resources>

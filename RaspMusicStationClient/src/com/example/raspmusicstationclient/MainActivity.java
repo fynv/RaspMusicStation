@@ -8,8 +8,11 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 
 import android.support.v7.app.ActionBarActivity;
+import android.text.Editable;
 import android.content.SharedPreferences;
-import android.content.res.Configuration;
+import android.media.AudioFormat;
+import android.media.AudioRecord;
+import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -26,6 +29,8 @@ import android.webkit.WebViewClient;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CompoundButton;
+import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
@@ -33,10 +38,111 @@ import android.widget.ProgressBar;
 import android.widget.TabHost;
 import android.widget.TabWidget;
 import android.widget.TextView;
-import android.widget.Toast;
+import android.widget.ToggleButton;
+import android.widget.ViewSwitcher;
+
+interface IPByteReciever 
+{
+	public void RecieveByte(int value);
+}
+
+class IPDecodeFromAudio implements Runnable
+{
+	private static final int RECORDER_SAMPLERATE = 44100;
+	private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
+	private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
+	
+	private AudioRecord recorder = null;
+	
+	private int BufferElements2Rec = 4096;
+	private int BytesPerElement = 2;
+	private Thread recordingThread = null;
+	private boolean isRecording = false;
+	private short sData[];
+	
+	private int regB=0;
+	private int regC=0;
+	
+    private IPByteReciever reciever;
+    
+	public static native int DecodeAudioBuffer(short sAudioBuffer[]);  
+	
+	IPDecodeFromAudio(IPByteReciever recv)
+	{
+		reciever=recv;
+		sData = new short[BufferElements2Rec];
+        
+	}
+	
+	private void Recognized(int value)
+	{
+		if (value>=0)
+		{
+			//Log.i("Audio Decode", String.valueOf(value)); 
+			
+			if (value==regB) regC++;
+			else
+			{
+				regB=value;
+				regC=1;
+			}
+			if (regC==3)
+				regC=0;
+
+			if (regC==2)
+			{
+				//Log.i("Audio Decode", String.valueOf(value)); 		
+				reciever.RecieveByte(value);
+			}
+			
+		}
+		else
+		{
+			regC=0;
+		}	
+	}
+	
+	public void run() {
+    	while (isRecording) {
+    		recorder.read(sData, 0, BufferElements2Rec);
+    		int value=DecodeAudioBuffer(sData);
+    		short value1=(short)value;
+    		short value2=(short)(value>>16);
+    		
+    		Recognized(value1);
+    		Recognized(value2);
+    		
+        }
+    	
+    }
+	
+	void StartRecording()
+	{
+		recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
+                RECORDER_SAMPLERATE, RECORDER_CHANNELS,
+                RECORDER_AUDIO_ENCODING, BufferElements2Rec * BytesPerElement);
+		
+		recorder.startRecording();
+        isRecording = true;
+        recordingThread = new Thread(this, "AudioRecorder Thread");
+        recordingThread.start();
+	}
+	
+	void StopRecording()
+	{
+		isRecording = false;
+        recorder.stop();
+        recorder.release();
+        recorder = null;
+        recordingThread = null;
+	}
+	
+};
 
 public class MainActivity extends ActionBarActivity {
-
+	static {  
+        System.loadLibrary("RaspMusicStationClient");
+    }  
 	private String m_host;
 	private String m_home_page;
 	
@@ -53,6 +159,10 @@ public class MainActivity extends ActionBarActivity {
 	
 	private int m_CurrentTrackID=-1;
 	private int m_CurrentSector=0;	
+	
+	private int m_RecievedIPByteCount;
+	
+	private IPDecodeFromAudio m_IPDecoder;
 
 	private Socket SendCommandKeep(String cmd)
 	{
@@ -382,6 +492,31 @@ public class MainActivity extends ActionBarActivity {
 			 });	
 		 }
 	 }
+	 
+	  private Handler RecieveIPByteHandler = new Handler(new Handler.Callback() {
+			public boolean handleMessage(Message msg) {
+			         switch (msg.what) {
+			        case 1:
+			        {
+			        	int value=msg.arg1;
+			        	 EditText editHost = (EditText) findViewById(R.id.editTextHost);  	
+			        	 Editable curString=editHost.getText();
+			    		 if (m_RecievedIPByteCount>0)
+			    			 curString.append(".");
+			    		 curString.append(String.valueOf(value));			        	
+			        	 m_RecievedIPByteCount++;
+			        	 if (m_RecievedIPByteCount==4)
+			        	 {
+			        		 ToggleButton btnListenIP=(ToggleButton)findViewById(R.id.btnListenIP);   
+			        		 btnListenIP.toggle();
+			        	 }
+			            break;
+			        }
+			      default:
+			      break;
+			         }
+			         return true;
+			}});
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -635,7 +770,55 @@ public class MainActivity extends ActionBarActivity {
 				  }
 		  }	  
 	  ); 
+      
+      
+      Button btnTest= (Button) findViewById(R.id.btnTest);
+      btnTest.setOnClickListener(new View.OnClickListener (){
+				  public void onClick(View v){
+					  
+					  ViewSwitcher switcher= (ViewSwitcher) findViewById(R.id.viewSwitcherTest);
+					  switcher.showNext();
+				  }
+		  }	  
+	  ); 
+      
+      Button btnTest2= (Button) findViewById(R.id.btnTest2);
+      btnTest2.setOnClickListener(new View.OnClickListener (){
+				  public void onClick(View v){
+					  
+					  ViewSwitcher switcher= (ViewSwitcher) findViewById(R.id.viewSwitcherTest);
+					  switcher.showPrevious();
+				  }
+		  }	  
+	  ); 
      
+      
+      m_IPDecoder=new IPDecodeFromAudio(new IPByteReciever(){
+    	  public void RecieveByte(int value)
+    	  {
+    		  Message notifyMsg = RecieveIPByteHandler.obtainMessage(1, value, 0, null) ;
+    		  RecieveIPByteHandler.sendMessage(notifyMsg) ;
+    	  }
+      });
+      
+      ToggleButton btnListenIP=(ToggleButton)findViewById(R.id.btnListenIP);   
+      
+      btnListenIP.setOnCheckedChangeListener(new OnCheckedChangeListener(){              
+		       public void onCheckedChanged(CompoundButton buttonView,boolean isChecked) {   
+		    	   if (isChecked) 
+		    	   {
+		    		   m_RecievedIPByteCount=0;
+		    		   EditText editHost = (EditText) findViewById(R.id.editTextHost);  						
+		    		   editHost.setText("");
+		    		   m_IPDecoder.StartRecording();		    		   
+		    	   }
+		    	   else m_IPDecoder.StopRecording();	    	   		
+		               
+		          }                      
+       		}
+      );      
+      
+         
 	  
       
       WebView myWebView = (WebView) findViewById(R.id.webview);
