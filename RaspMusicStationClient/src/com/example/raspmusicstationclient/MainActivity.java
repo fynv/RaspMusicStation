@@ -646,6 +646,7 @@ public class MainActivity extends ActionBarActivity {
 			        }
 			        case 3: // Over
 			        {
+			        	m_CurPlayingListID=-1;
 			        	m_CurrentSongID=-1;
 			        	UpdateListSongs();	
 			        	break;
