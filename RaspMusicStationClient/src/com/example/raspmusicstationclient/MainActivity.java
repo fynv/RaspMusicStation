@@ -722,14 +722,6 @@ public class MainActivity extends ActionBarActivity {
 	 
 	 private void PlayList(int songID)
 	 {
-		  try
-			{
-				m_commandThread.join();
-			}
-			catch (InterruptedException e)
-			{
-				
-			}
 		RunPlayThread(new PlayListRunnable(songID));		
 	 }
 	 
