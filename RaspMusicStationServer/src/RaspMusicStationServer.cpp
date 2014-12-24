@@ -19,6 +19,9 @@ struct CommandFeedBackThreadInfo
   FILE* m_fin;
   FeedBackSocket m_CDListSocket;
   FeedBackSocket m_CDStatusSocket;
+  FeedBackSocket m_ListListsSocket;
+  FeedBackSocket m_ListSongsSocket;
+  FeedBackSocket m_ListStatusSocket;
 };
 
 void* HostProcess_CommandFeedBackThread(void* info)
@@ -28,6 +31,9 @@ void* HostProcess_CommandFeedBackThread(void* info)
   char buffer[4096];
   char command[256];
   bool readingCDFeedBack=false;
+  bool readingListLists=false;
+  bool readingListSongs=false;
+  bool readingListFeedBack=false;
   while (fgets(buffer,4096, fin))
   {
     char *pos;
@@ -81,6 +87,82 @@ void* HostProcess_CommandFeedBackThread(void* info)
         sem_post(&tInfo->m_CDStatusSocket.m_finish_sem);        
       }      
     }
+	else if (s_command=="ListLists")
+    {
+      char* pinfo=buffer+10;
+	  if (!readingListLists)
+	  {
+	      sem_wait(&tInfo->m_ListListsSocket.m_start_sem);
+		  readingListLists=true;
+	  }
+      int len=strlen(pinfo);
+      pinfo[len]='\n';
+      pinfo[len+1]='\0';
+      tInfo->m_ListListsSocket.m_se.Send(pinfo,len+1);
+	  char command2[256];
+      if (-1==sscanf(pinfo,"%s",command2)) continue;
+	  string s_command2=command2;
+	  if (s_command2=="#End")
+      {
+		  readingListLists=false;
+		  sem_post(&tInfo->m_ListListsSocket.m_finish_sem);
+	  }
+    }
+	else if (s_command=="ListSongs")
+    {
+      char* pinfo=buffer+10;
+	  if (!readingListSongs)
+	  {
+	      sem_wait(&tInfo->m_ListSongsSocket.m_start_sem);
+		  readingListSongs=true;
+	  }
+      int len=strlen(pinfo);
+      pinfo[len]='\n';
+      pinfo[len+1]='\0';
+      tInfo->m_ListSongsSocket.m_se.Send(pinfo,len+1);
+	  char command2[256];
+      if (-1==sscanf(pinfo,"%s",command2)) continue;
+	  string s_command2=command2;
+	  if (s_command2=="#End")
+      {
+		  readingListSongs=false;
+		  sem_post(&tInfo->m_ListSongsSocket.m_finish_sem);
+	  }
+    }
+	else if (s_command=="ListPlayBack")
+    {
+      if (!readingListFeedBack)
+      {
+        sem_wait(&tInfo->m_ListStatusSocket.m_start_sem);
+        readingListFeedBack=true;
+      }
+      if (tInfo->m_ListStatusSocket.m_resetSocket)
+      {
+        readingListFeedBack=false;
+        FeiSocketSession invalid;
+        tInfo->m_ListStatusSocket.m_se=invalid;
+        sem_post(&tInfo->m_ListStatusSocket.m_finish_sem);        
+        tInfo->m_ListStatusSocket.m_resetSocket=false;
+        sem_wait(&tInfo->m_ListStatusSocket.m_start_sem);
+        readingListFeedBack=true;        
+      }
+      char* pinfo=buffer+13;
+      int len=strlen(pinfo);
+      pinfo[len]='\n';
+
+      pinfo[len+1]='\0';      
+      tInfo->m_ListStatusSocket.m_se.Send(pinfo,len+1);
+      char command2[256];
+      if (-1==sscanf(pinfo,"%s",command2)) continue;
+      string s_command2=command2;
+      if (s_command2=="Over")
+      {
+        readingListFeedBack=false;
+        FeiSocketSession invalid;
+        tInfo->m_ListStatusSocket.m_se=invalid;
+        sem_post(&tInfo->m_ListStatusSocket.m_finish_sem);        
+      }      
+    }
   }
 }
 
@@ -110,6 +192,15 @@ int HostProcess(pid_t listenerID, FILE* fout, FILE* fin)
 
   sem_init(&cfbInfo.m_CDListSocket.m_finish_sem,0,0);  
   sem_init(&cfbInfo.m_CDListSocket.m_start_sem,0,0);  
+
+  sem_init(&cfbInfo.m_ListStatusSocket.m_finish_sem,0,1);  
+  sem_init(&cfbInfo.m_ListStatusSocket.m_start_sem,0,0); 
+
+  sem_init(&cfbInfo.m_ListListsSocket.m_finish_sem,0,0);  
+  sem_init(&cfbInfo.m_ListListsSocket.m_start_sem,0,0);  
+
+  sem_init(&cfbInfo.m_ListSongsSocket.m_finish_sem,0,0);  
+  sem_init(&cfbInfo.m_ListSongsSocket.m_start_sem,0,0);  
   
   FeiSocketSever server(PORT);
   if (!server.IsValid())
@@ -161,10 +252,26 @@ int HostProcess(pid_t listenerID, FILE* fout, FILE* fin)
         {
           se.Send("playing\n",8);
           cfbInfo.m_CDStatusSocket.m_resetSocket=true;
+		  SendCommand("CurTrack",fout, cmd_lock);
           sem_wait(&cfbInfo.m_CDStatusSocket.m_finish_sem);
           cfbInfo.m_CDStatusSocket.m_se=se;
-          SendCommand("CurTrack",fout, cmd_lock);
           sem_post(&cfbInfo.m_CDStatusSocket.m_start_sem);
+        }
+        else
+        {
+          se.Send("notplaying\n",11);
+        }
+      }      
+	  else if (s_command=="ResetListWatch")
+      {
+        if (cfbInfo.m_ListStatusSocket.m_se.IsValid())
+        {
+          se.Send("playing\n",8);
+          cfbInfo.m_ListStatusSocket.m_resetSocket=true;
+		  SendCommand("CurSong",fout, cmd_lock);
+          sem_wait(&cfbInfo.m_ListStatusSocket.m_finish_sem);
+          cfbInfo.m_ListStatusSocket.m_se=se;
+          sem_post(&cfbInfo.m_ListStatusSocket.m_start_sem);
         }
         else
         {
@@ -186,6 +293,25 @@ int HostProcess(pid_t listenerID, FILE* fout, FILE* fin)
           cfbInfo.m_CDListSocket.m_se=se;
           sem_post(&cfbInfo.m_CDListSocket.m_start_sem);
           sem_wait(&cfbInfo.m_CDListSocket.m_finish_sem);
+        } 
+		else if (s_command=="PlayList")
+        {
+          sem_wait(&cfbInfo.m_ListStatusSocket.m_finish_sem);
+          cfbInfo.m_ListStatusSocket.m_resetSocket=false;
+          cfbInfo.m_ListStatusSocket.m_se=se;
+          sem_post(&cfbInfo.m_ListStatusSocket.m_start_sem);
+        }
+		else if (s_command=="ListLists")
+        {
+          cfbInfo.m_ListListsSocket.m_se=se;
+          sem_post(&cfbInfo.m_ListListsSocket.m_start_sem);
+          sem_wait(&cfbInfo.m_ListListsSocket.m_finish_sem);
+        } 
+		else if (s_command=="ListSongs")
+        {
+          cfbInfo.m_ListSongsSocket.m_se=se;
+          sem_post(&cfbInfo.m_ListSongsSocket.m_start_sem);
+          sem_wait(&cfbInfo.m_ListSongsSocket.m_finish_sem);
         } 
        
       }

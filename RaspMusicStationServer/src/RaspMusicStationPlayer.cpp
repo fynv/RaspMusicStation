@@ -45,11 +45,32 @@ void* CDPlayBackMonitorThread(void* info)
   PlaySound("beep.mp3");
 }
 
+void* ListPlayBackMonitorThread(void* info)
+{
+  PlayBackMonitorParam* param=(PlayBackMonitorParam*)(info);
+  FILE *fin=param->m_fin;
+
+  char buffer[1024];
+  while (1)
+  {
+     if (!fgets(buffer,1024,fin)) break;
+     char *pos;
+     if ((pos=strchr(buffer, '\n')) != NULL)
+      *pos = '\0';
+     char feedBack[1024];
+	 sprintf(feedBack,"ListPlayBack %s", buffer);
+     SendFeedback(feedBack, param->m_fbstuff);
+  }
+  SendFeedback("ListPlayBack Over", param->m_fbstuff);
+  PlaySound("beep.mp3");
+}
+
 enum PlayBackStatus
 {
   NO,
   URL,
-  CD
+  CD,
+  List
 };
 
 int CommandListenerProcess(FILE* fout, FILE *fin)
@@ -83,7 +104,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
     if (-1==sscanf(buffer,"%s",command)) continue;
     string s_command=command;
 
-    if (s_command=="PlayURL" || s_command=="PlayCD" || s_command=="Stop" || s_command=="Quit")
+    if (s_command=="PlayURL" || s_command=="PlayCD" || s_command=="PlayList" || s_command=="Stop" || s_command=="Quit")
     {
         if (slaveOut) 
         {
@@ -133,6 +154,24 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
           pthread_create(&PlayBackMonitorThreadID,NULL,CDPlayBackMonitorThread,&pbtParam);
           pbstatus=CD;
         }
+		else if (s_command=="PlayList")
+        {
+		  int list=0;
+          int startSong=0;
+          if (strlen(buffer)>9) sscanf(buffer+9,"%d %d",&list, &startSong);
+		  char listID[10]; sprintf(listID,"%d",list);
+          char startSongID[10]; sprintf(startSongID,"%d",startSong);
+          PlaySound("beep.mp3");
+          pid=LaunchChild(slaveOut,slaveIn);    
+          if (pid==0)
+          {
+            execlp("/home/pi/omxdirplayer","omxdirplayer","-l",listID,"-t",startSongID, 0);
+          }
+          // start play-back monitor thread
+          pbtParam.m_fin=slaveIn;  
+          pthread_create(&PlayBackMonitorThreadID,NULL,ListPlayBackMonitorThread,&pbtParam);
+          pbstatus=List;
+        }
     }
     else if (s_command=="Eject")
     {
@@ -155,7 +194,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
         } 
         system("eject /dev/sr0");
     }
-    else if (s_command=="VolDown" || s_command=="VolUp" || s_command=="NextTrack" || s_command=="PrevTrack" || s_command=="CurTrack")
+    else if (s_command=="VolDown" || s_command=="VolUp" || s_command=="NextTrack" || s_command=="PrevTrack" || s_command=="CurTrack" || s_command=="NextSong" || s_command=="PrevSong" || s_command=="CurSong")
     {
         if (slaveOut) 
         {
@@ -167,13 +206,13 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
               fputc('-',slaveOut);
             else if (s_command=="VolUp")
               fputc('+',slaveOut);
-            else if(pbstatus==CD)
+			else if(pbstatus==CD || pbstatus==List)
             {
-              if (s_command=="PrevTrack")
+              if (s_command=="PrevTrack" || s_command=="PrevSong")
                 fputc('<',slaveOut);
-              else if (s_command=="NextTrack")
+              else if (s_command=="NextTrack" || s_command=="NextSong")
                 fputc('>',slaveOut);
-              else if (s_command=="CurTrack")
+              else if (s_command=="CurTrack" || s_command=="CurSong")
                 fputc('t',slaveOut);
             }
           }
@@ -193,6 +232,38 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
        while (fgets(buffer,4096,listIn))
          SendFeedback(buffer, fbstuff);
     } 
+	else if (s_command=="ListLists")
+	{
+		FILE *listOut=0;
+       FILE *listIn=0;
+       pid_t listPid;	
+       listPid=LaunchChild(listOut,listIn);    
+       if (listPid==0)
+       {
+         execlp("/home/pi/omxdirplayer","omxdirplayer", "-ll",0);
+       }
+	    char buffer[4096];
+       while (fgets(buffer,4096,listIn))
+         SendFeedback(buffer, fbstuff);
+	}
+	else if (s_command=="ListSongs")
+	{
+		int list=0;
+          if (strlen(buffer)>10) sscanf(buffer+10,"%d",&list);
+          char listID[10]; sprintf(listID,"%d",list);
+
+		FILE *listOut=0;
+       FILE *listIn=0;
+       pid_t listPid;	
+       listPid=LaunchChild(listOut,listIn);    
+       if (listPid==0)
+       {
+         execlp("/home/pi/omxdirplayer","omxdirplayer", "-ls","-l",listID,0);
+       }
+	    char buffer[4096];
+       while (fgets(buffer,4096,listIn))
+         SendFeedback(buffer, fbstuff);
+	}
 
   }
 

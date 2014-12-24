@@ -29,8 +29,107 @@
             <FrameLayout
                 android:id="@android:id/tabcontent"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent" >   
+                android:layout_height="match_parent" >  
                 
+                    <ViewSwitcher
+                        android:id="@+id/tab02"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" >
+                        
+                          <LinearLayout
+                             android:layout_width="match_parent"
+                             android:layout_height="match_parent"
+                             android:orientation="vertical" >
+
+                             <TextView
+                                 android:id="@+id/textView1"
+                                 android:layout_width="wrap_content"
+                                 android:layout_height="wrap_content"
+                                 android:text="@string/labelLists"
+                                 android:textAppearance="?android:attr/textAppearanceLarge" />
+
+                             <ListView
+                                 android:id="@+id/listLists"
+                                 android:layout_width="match_parent"
+                                 android:layout_height="match_parent" >
+                             </ListView>
+
+                         </LinearLayout>
+                        
+                        <LinearLayout
+                             android:layout_width="match_parent"
+                             android:layout_height="match_parent"
+                             android:orientation="vertical" >
+
+                               
+                              <LinearLayout
+		                         android:layout_width="match_parent"
+		                         android:layout_height="wrap_content"
+		                         android:orientation="horizontal" >
+
+	                             <Button
+	                                 android:id="@+id/btnReturn2Lists"
+	                                 android:layout_width="45dp"
+				                     android:layout_height="45dp"
+	                                 android:background="@drawable/back" />
+	                             
+	                             <Button
+			                           android:id="@+id/btnPlayList"
+			                           android:layout_width="45dp"
+			                           android:layout_height="45dp"
+			                           android:background="@drawable/play"/>
+			
+			                       <Button
+			                           android:id="@+id/btnStopList"
+			                           android:layout_width="45dp"
+			                           android:layout_height="45dp"
+			                           android:background="@drawable/stop" />
+			                       
+			                       <Button
+			                           android:id="@+id/btnPrevSong"
+			                           android:layout_width="45dp"
+			                           android:layout_height="45dp"
+			                           android:background="@drawable/prev" />
+			
+			                       <Button
+			                           android:id="@+id/btnNextSong"
+			                           android:layout_width="45dp"
+			                           android:layout_height="45dp"
+			                           android:background="@drawable/next" />
+			
+			                       <Button
+			                           android:id="@+id/btnVolDownList"
+			                           android:layout_width="45dp"
+			                           android:layout_height="45dp"
+			                           android:background="@drawable/down" />
+			
+			                       <Button
+			                           android:id="@+id/btnVolUpList"
+			                           android:layout_width="45dp"
+			                           android:layout_height="45dp"
+			                           android:background="@drawable/up" />
+			                       
+	                           </LinearLayout>
+	                           
+                               <TextView
+                                 android:id="@+id/listTitle"
+                                 android:layout_width="wrap_content"
+                                 android:layout_height="wrap_content"
+                                 android:text=""
+                                 android:textAppearance="?android:attr/textAppearanceLarge" />
+	                           
+                                <ListView
+                                 android:id="@+id/listSongs"
+                                 android:layout_width="match_parent"
+                                 android:layout_height="match_parent" >
+                             </ListView>
+
+                         </LinearLayout>
+                         
+                        
+                    </ViewSwitcher>
+
+               
                   <LinearLayout
                     android:id="@+id/tab04"
                     android:layout_width="match_parent"
@@ -123,59 +222,7 @@
 
                 </LinearLayout>
                 
-                <LinearLayout
-                    android:id="@+id/tab02"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent" 
-                    android:orientation="vertical">
-
-                    <ViewSwitcher
-                        android:id="@+id/viewSwitcherTest"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent" >
-
-                         <LinearLayout
-                             android:layout_width="match_parent"
-                             android:layout_height="match_parent"
-                             android:orientation="vertical" >
-
-                             <TextView
-                                 android:id="@+id/textView1"
-                                 android:layout_width="wrap_content"
-                                 android:layout_height="wrap_content"
-                                 android:text="Test1"
-                                 android:textAppearance="?android:attr/textAppearanceLarge" />
-
-                             <Button
-                                 android:id="@+id/btnTest"
-                                 android:layout_width="wrap_content"
-                                 android:layout_height="wrap_content"
-                                 android:text="Button" />
-
-                         </LinearLayout>
-
-                         <LinearLayout
-                             android:layout_width="match_parent"
-                             android:layout_height="match_parent"
-                             android:orientation="vertical" >
-
-                             <TextView
-                                 android:id="@+id/textView2"
-                                 android:layout_width="wrap_content"
-                                 android:layout_height="wrap_content"
-                                 android:text="Test2"
-                                 android:textAppearance="?android:attr/textAppearanceLarge" />
-
-                             <Button
-                                 android:id="@+id/btnTest2"
-                                 android:layout_width="wrap_content"
-                                 android:layout_height="wrap_content"
-                                 android:text="Button" />
-
-                         </LinearLayout>
-                    </ViewSwitcher>
-
-                  </LinearLayout>
+               
                 
                 <LinearLayout
                     android:id="@+id/tab03"

@@ -17,5 +17,6 @@
     <string name="btnRefreshCDText">Refresh</string>
     <string name="btnListenIPText">Listen IP</string>
     <string name="btnListenIPOn">Listening</string>
+    <string name="labelLists">Lists:</string>
 
 </resources>

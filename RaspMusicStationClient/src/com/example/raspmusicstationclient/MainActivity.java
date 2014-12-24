@@ -6,6 +6,8 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.List;
 
 import android.support.v7.app.ActionBarActivity;
 import android.text.Editable;
@@ -33,6 +35,7 @@ import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TabHost;
@@ -152,8 +155,7 @@ public class MainActivity extends ActionBarActivity {
 	private Thread m_playThread;
 	private Boolean m_playThreadRunning=false;
 	
-	private Boolean m_CDInfoUpdated=false;
-	
+	private Boolean m_CDInfoUpdated=false;	
 	private int m_CDTrackNumber;
 	private int[] m_CDTrackSectors;
 	
@@ -163,6 +165,16 @@ public class MainActivity extends ActionBarActivity {
 	private int m_RecievedIPByteCount;
 	
 	private IPDecodeFromAudio m_IPDecoder;
+	
+	private Boolean m_ListListsUpdated=false;
+	private ArrayList<String> m_ListLists;
+	
+	private int m_ListID=-1;
+    private ArrayList<String> m_ListSongs;	
+    
+    private int m_CurPlayingListID=-1;
+    private int m_CurrentSongID=-1;
+	
 
 	private Socket SendCommandKeep(String cmd)
 	{
@@ -222,7 +234,12 @@ public class MainActivity extends ActionBarActivity {
 	{
 		if (m_playThreadRunning)
 		{
-			m_playThreadRunning=false;
+			m_playThreadRunning=false;			
+			RunCommandThread(new Runnable(){
+	  			public void run(){
+	  				SendCommand("Stop");		
+	  			}		  			
+	  		});			
 			try
 			{
 				m_playThread.join();
@@ -320,6 +337,123 @@ public class MainActivity extends ActionBarActivity {
    	  	Message notifyMsg = RefreshCDListHandler.obtainMessage(1, 0, 0, null) ;
    	    RefreshCDListHandler.sendMessage(notifyMsg) ;
    	    m_CDInfoUpdated=true;
+     }
+	 
+	private void UpdateListLists()
+	{
+		ListView listLists= (ListView) findViewById(R.id.listLists);
+		listLists.setAdapter(new ArrayAdapter<String>(MainActivity.this,
+             android.R.layout.simple_list_item_1, m_ListLists));	
+	}
+	 
+	 private Handler RefreshListListsHandler = new Handler(new Handler.Callback() {
+			public boolean handleMessage(Message msg) {
+			         switch (msg.what) {
+			        case 1:
+			        {
+			        	UpdateListLists();
+			            break;
+			        }
+			      default:
+			      break;
+			         }
+			         return true;
+			}});
+	 
+	 private void RefreshListLists() 
+     {
+   	  try{
+				Socket clientSocket=SendCommandKeep("ListLists");	
+				BufferedReader socketIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(),"gbk"));
+				
+				m_ListLists=new ArrayList<String>();
+				
+				while(true)
+				{
+					String line=socketIn.readLine();
+					if (line.equals("#End")) break;
+					m_ListLists.add(new String(line.getBytes("gbk"),"gbk"));
+				}
+				clientSocket.close();			
+			 
+			 }catch (NullPointerException e){
+				 e.printStackTrace();
+				 return;
+			 }catch (UnknownHostException e){
+				 e.printStackTrace();
+				 return;
+			 }catch (IOException e){
+				 e.printStackTrace();
+				 return;
+			 }   
+   	  	Message notifyMsg = RefreshListListsHandler.obtainMessage(1, 0, 0, null) ;
+   	    RefreshListListsHandler.sendMessage(notifyMsg) ;
+   	    m_ListListsUpdated=true;
+     }
+	 
+	private void UpdateListSongs()
+	{
+		String[] songList=new String[m_ListSongs.size()];
+   	    int i;
+   	    for (i=0;i<m_ListSongs.size();i++)
+   	    {
+   	    	if (m_ListID==m_CurPlayingListID && i==m_CurrentSongID) songList[i]="* ";
+   	    	else songList[i]="  ";
+   	    	songList[i]+=m_ListSongs.get(i);
+   	    }
+   	    
+   	 ListView listSongs= (ListView) findViewById(R.id.listSongs);
+		listSongs.setAdapter(new ArrayAdapter<String>(MainActivity.this,
+          android.R.layout.simple_list_item_1, songList));
+		if (m_ListID==m_CurPlayingListID)
+			listSongs.setSelection(m_CurrentSongID);
+		
+	}
+	 
+	 private Handler RefreshListSongsHandler = new Handler(new Handler.Callback() {
+			public boolean handleMessage(Message msg) {
+			         switch (msg.what) {
+			        case 1:
+			        {
+			        	UpdateListSongs();
+			            break;
+			        }
+			      default:
+			      break;
+			         }
+			         return true;
+			}});
+	 
+	 private void RefreshListSongs(int newID) 
+     {
+		 if (newID<0 || newID==m_ListID) return ;
+		 m_ListID=newID;
+   	  try{
+				Socket clientSocket=SendCommandKeep("ListSongs "+String.valueOf(m_ListID));	
+				BufferedReader socketIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(),"gbk"));
+				
+				m_ListSongs=new ArrayList<String>();
+				
+				while(true)
+				{
+					String line=socketIn.readLine();
+					if (line.equals("#End")) break;
+					m_ListSongs.add(new String(line.getBytes("gbk"),"gbk"));
+				}
+				clientSocket.close();			
+			 
+			 }catch (NullPointerException e){
+				 e.printStackTrace();
+				 return;
+			 }catch (UnknownHostException e){
+				 e.printStackTrace();
+				 return;
+			 }catch (IOException e){
+				 e.printStackTrace();
+				 return;
+			 }   
+   	  	Message notifyMsg = RefreshListSongsHandler.obtainMessage(1, 0, 0, null) ;
+   	    RefreshListSongsHandler.sendMessage(notifyMsg) ;
      }
 	 
 	 private void UpdateCDProgress()
@@ -493,6 +627,142 @@ public class MainActivity extends ActionBarActivity {
 		 }
 	 }
 	 
+	 private Handler RefreshListPlayHandler = new Handler(new Handler.Callback() {
+			public boolean handleMessage(Message msg) {
+			         switch (msg.what) {
+			         case 0: // start watching
+			         {
+			        	
+			             break;
+			         }			        	 
+			        case 1: // track info
+			        {
+			        	UpdateListSongs();			        	
+			        	break;
+			        }
+			        case 2: // sector info
+			        {
+			        	break;
+			        }
+			        case 3: // Over
+			        {
+			        	m_CurrentSongID=-1;
+			        	UpdateListSongs();	
+			        	break;
+			        }
+			      default:
+			      break;
+			         }
+			         return true;
+			}});
+	 
+	 private void WatchListFeedBack(Socket clientSocket)
+	 {
+		 try{
+			 {
+				 Message notifyMsg = RefreshListPlayHandler.obtainMessage(0, 0, 0, null) ;
+				 RefreshListPlayHandler.sendMessage(notifyMsg) ;
+			}
+			 BufferedReader socketIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+			  	while(true)
+				{
+					String line=socketIn.readLine();
+					String[] strs=line.split(" "); 
+					if (strs.length<1) continue;
+					if (!m_playThreadRunning) break;
+					
+					if (strs[0].equals("Over")) break;
+					else if(strs[0].equals("song"))
+					{
+						if (strs.length<3) continue;
+						m_CurPlayingListID=Integer.valueOf(strs[1]);
+						m_CurrentSongID=Integer.valueOf(strs[2]);
+						{
+							Message notifyMsg = RefreshListPlayHandler.obtainMessage(1, 0, 0, null) ;
+							RefreshListPlayHandler.sendMessage(notifyMsg) ;
+						}
+					}
+				}
+				clientSocket.close();
+		 }catch (NullPointerException e){
+			 e.printStackTrace();
+			 return;
+		 }catch (UnknownHostException e){
+			 e.printStackTrace();
+			 return;
+		 }catch (IOException e){
+			 e.printStackTrace();
+			 return;
+		 }   
+		 {
+			  Message notifyMsg = RefreshListPlayHandler.obtainMessage(3, 0, 0, null) ;
+			  RefreshListPlayHandler.sendMessage(notifyMsg) ;
+		 }
+	 }
+	 
+	 class PlayListRunnable implements Runnable
+	 {
+		 private int m_songID;
+		 public PlayListRunnable(int songID) {
+			 m_songID=songID;
+		 }
+		 public void run(){
+			  try{
+				  Socket clientSocket=SendCommandKeep("PlayList "+ String.valueOf(m_ListID)+" "+String.valueOf(m_songID));	
+			      WatchListFeedBack(clientSocket);
+				 
+				 }catch (NullPointerException e){
+					 e.printStackTrace();
+					 return;
+				 }
+			  
+		 }		
+	 }
+	 
+	 
+	 private void PlayList(int songID)
+	 {
+		  try
+			{
+				m_commandThread.join();
+			}
+			catch (InterruptedException e)
+			{
+				
+			}
+		RunPlayThread(new PlayListRunnable(songID));		
+	 }
+	 
+	 private void ResetListWatch()
+	 {
+		 if (!m_playThreadRunning)
+		 {
+			 RunPlayThread( new Runnable(){
+		  			public void run(){
+		  				 try{
+		  					  Socket clientSocket=SendCommandKeep("ResetListWatch");	
+		  					  BufferedReader socketIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+						      String line=socketIn.readLine();
+						      if (line.equals("playing"))
+						    	  WatchListFeedBack(clientSocket);
+						      else 
+						    	  clientSocket.close();
+		  					 
+		  					 }catch (NullPointerException e){
+		  						 e.printStackTrace();
+		  						 return;
+		  					 }catch (UnknownHostException e){
+		  						 e.printStackTrace();
+		  						 return;
+		  					 }catch (IOException e){
+		  						 e.printStackTrace();
+		  						 return;
+		  					 }   
+		  			}	
+			 });	
+		 }
+	 }
+	 
 	  private Handler RecieveIPByteHandler = new Handler(new Handler.Callback() {
 			public boolean handleMessage(Message msg) {
 			         switch (msg.what) {
@@ -570,16 +840,18 @@ public class MainActivity extends ActionBarActivity {
 		  		});	
             	ResetCDWatch();
             }
+            else if (tabId=="tab02" && !m_ListListsUpdated) 
+            {
+            	RunCommandThread(new Runnable(){
+		  			public void run(){
+		  				RefreshListLists();
+		  			}		  			
+		  		});	
+            }
           }  
       });  
       
-      ListView listTracks= (ListView) findViewById(R.id.listTracks);
-      listTracks.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-    	  public void onItemClick(AdapterView<?> parent, View view,
-    	  int position, long id) {
-    		  PlayCD(position);
-    	  }
-    	  });
+      
       Button btnStop= (Button) findViewById(R.id.btnStop);
 	  btnStop.setOnClickListener(new View.OnClickListener (){
 		  		 public void onClick(View v){
@@ -681,6 +953,15 @@ public class MainActivity extends ActionBarActivity {
 		  }	  
 	  );  
       
+      ListView listTracks= (ListView) findViewById(R.id.listTracks);
+      listTracks.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+	    	  public void onItemClick(AdapterView<?> parent, View view,
+	    	  int position, long id) {
+	    		  PlayCD(position);
+	    	  }
+    	  }
+      );
+      
       Button btnStopCD= (Button) findViewById(R.id.btnStopCD);
       btnStopCD.setOnClickListener(new View.OnClickListener (){
 				  public void onClick(View v){
@@ -772,26 +1053,129 @@ public class MainActivity extends ActionBarActivity {
 	  ); 
       
       
-      Button btnTest= (Button) findViewById(R.id.btnTest);
-      btnTest.setOnClickListener(new View.OnClickListener (){
-				  public void onClick(View v){
-					  
-					  ViewSwitcher switcher= (ViewSwitcher) findViewById(R.id.viewSwitcherTest);
-					  switcher.showNext();
-				  }
-		  }	  
-	  ); 
+     ///////////
       
-      Button btnTest2= (Button) findViewById(R.id.btnTest2);
-      btnTest2.setOnClickListener(new View.OnClickListener (){
+      ListView listLists= (ListView) findViewById(R.id.listLists);
+      listLists.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+	    	  public void onItemClick(AdapterView<?> parent, View view,
+	    	  int position, long id) {
+	    		      		  
+	    		  String listTitleText=m_ListLists.get(position);
+	    		  TextView listTitle= (TextView) findViewById(R.id.listTitle);
+	    		  listTitle.setText("Songs in list ".concat(listTitleText));
+	    		  
+	    		  ViewSwitcher switcher= (ViewSwitcher) findViewById(R.id.tab02);
+				  switcher.showNext();
+				  
+				  class RefreshListSongsRunnable implements Runnable
+				  {
+					  private int m_newID;
+					  RefreshListSongsRunnable(int newID)
+					  {
+						  m_newID=newID;
+					  }
+						public void run(){
+			  				RefreshListSongs(m_newID);
+			  			}	
+				  }
+				  
+				  RunCommandThread(new RefreshListSongsRunnable(position));	
+				  ResetListWatch();
+	    	  }
+    	  }
+      );
+      
+      
+      
+      Button btnReturn2Lists= (Button) findViewById(R.id.btnReturn2Lists);
+      btnReturn2Lists.setOnClickListener(new View.OnClickListener (){
 				  public void onClick(View v){
 					  
-					  ViewSwitcher switcher= (ViewSwitcher) findViewById(R.id.viewSwitcherTest);
+					  ViewSwitcher switcher= (ViewSwitcher) findViewById(R.id.tab02);
 					  switcher.showPrevious();
 				  }
 		  }	  
 	  ); 
-     
+      
+      Button btnPlayList= (Button) findViewById(R.id.btnPlayList);
+      btnPlayList.setOnClickListener(new View.OnClickListener (){
+				  public void onClick(View v){
+					  PlayList(0);					  
+				  }
+		  }	  
+	  );  
+      
+      Button btnStopList= (Button) findViewById(R.id.btnStopList);
+      btnStopList.setOnClickListener(new View.OnClickListener (){
+				  public void onClick(View v){
+					  RunCommandThread(new Runnable(){
+				  			public void run(){
+				  				SendCommand("Stop");		
+				  			}		  			
+				  		});							  
+				  }
+		  }	  
+	  ); 
+      
+      Button btnPrevSong= (Button) findViewById(R.id.btnPrevSong);
+      btnPrevSong.setOnClickListener(new View.OnClickListener (){
+				  public void onClick(View v){
+					  RunCommandThread(new Runnable(){
+				  			public void run(){
+				  				SendCommand("PrevSong");		
+				  			}		  			
+				  		});							  
+				  }
+		  }	  
+	  ); 
+      
+      Button btnNextSong= (Button) findViewById(R.id.btnNextSong);
+      btnNextSong.setOnClickListener(new View.OnClickListener (){
+				  public void onClick(View v){
+					  RunCommandThread(new Runnable(){
+				  			public void run(){
+				  				SendCommand("NextSong");		
+				  			}		  			
+				  		});							  
+				  }
+		  }	  
+	  ); 
+      
+      Button btnVolDownList= (Button) findViewById(R.id.btnVolDownList);
+      btnVolDownList.setOnClickListener(new View.OnClickListener (){
+				  public void onClick(View v){
+					  RunCommandThread(new Runnable(){
+				  			public void run(){
+				  				SendCommand("VolDown");		
+				  			}		  			
+				  		});							  
+				  }
+		  }	  
+	  ); 
+      
+      Button btnVolUpList= (Button) findViewById(R.id.btnVolUpList);
+      btnVolUpList.setOnClickListener(new View.OnClickListener (){
+				  public void onClick(View v){
+					  RunCommandThread(new Runnable(){
+				  			public void run(){
+				  				SendCommand("VolUp");		
+				  			}		  			
+				  		});							  
+				  }
+		  }	  
+	  ); 
+      
+      ListView listSongs= (ListView) findViewById(R.id.listSongs);
+      listSongs.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+	    	  public void onItemClick(AdapterView<?> parent, View view,
+	    	  int position, long id) {
+	    		  PlayList(position);
+	    	  }
+    	  }
+      );
+      
+      
+     ////////////////
       
       m_IPDecoder=new IPDecodeFromAudio(new IPByteReciever(){
     	  public void RecieveByte(int value)
