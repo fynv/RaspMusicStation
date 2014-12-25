@@ -44,7 +44,7 @@ void ListDir(const char* path, FeedBackStuff fbstuff)
 				if((strcmp(dirp->d_name,".")==0)||(strcmp(dirp->d_name,"..")==0))
 						continue;
 
-				if (dirp->d_type==DT_DIR)
+				if (dirp->d_type==DT_DIR || dirp->d_type==DT_LNK )
 				{
 					string name=dirp->d_name;
 					vector<string>::iterator result = find( listLists.begin( ), listLists.end( ), name ); 
