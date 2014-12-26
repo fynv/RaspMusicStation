@@ -761,6 +761,7 @@ public class MainActivity extends ActionBarActivity {
 			         switch (msg.what) {
 			        case 1:
 			        {
+			        	if (m_RecievedIPByteCount>=4) break;
 			        	int value=msg.arg1;
 			        	 EditText editHost = (EditText) findViewById(R.id.editTextHost);  	
 			        	 Editable curString=editHost.getText();
