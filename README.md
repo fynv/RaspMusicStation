@@ -1,8 +1,6 @@
 ﻿RaspMusicStation 树梅派音乐站
 ================
 
-<p align="center"><iframe style="width: 480px; height: 400px;" src="http://www.tudou.com/programs/view/html5embed.action?type=0&amp;code=UvhWlVNPgUs&amp;lcode=&amp;resourceId=63196561_06_05_99" height="240" width="320" allowfullscreen="true" frameborder="0" scrolling="no"></iframe></p>
-
 Tools for setting-up Raspberry Pi as a music server which can be controlled from an Android device through Wifi
 
 本项目旨在开发一组工具，用来将树梅派设置为一个可以从安卓设备通过Wifi进行远程遥控的音乐服务器。
