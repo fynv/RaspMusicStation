@@ -364,7 +364,7 @@ public class MainActivity extends ActionBarActivity {
      {
    	  try{
 				Socket clientSocket=SendCommandKeep("ListLists");	
-				BufferedReader socketIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(),"gbk"));
+				BufferedReader socketIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 				
 				m_ListLists=new ArrayList<String>();
 				
@@ -372,7 +372,7 @@ public class MainActivity extends ActionBarActivity {
 				{
 					String line=socketIn.readLine();
 					if (line.equals("#End")) break;
-					m_ListLists.add(new String(line.getBytes("gbk"),"gbk"));
+					m_ListLists.add(line);
 				}
 				clientSocket.close();			
 			 
