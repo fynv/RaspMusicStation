@@ -364,7 +364,7 @@ public class MainActivity extends ActionBarActivity {
      {
    	  try{
 				Socket clientSocket=SendCommandKeep("ListLists");	
-				BufferedReader socketIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(),"gbk"));
+				BufferedReader socketIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 				
 				m_ListLists=new ArrayList<String>();
 				
@@ -372,7 +372,7 @@ public class MainActivity extends ActionBarActivity {
 				{
 					String line=socketIn.readLine();
 					if (line.equals("#End")) break;
-					m_ListLists.add(new String(line.getBytes("gbk"),"gbk"));
+					m_ListLists.add(line);
 				}
 				clientSocket.close();			
 			 
@@ -430,7 +430,7 @@ public class MainActivity extends ActionBarActivity {
 		 m_ListID=newID;
    	  try{
 				Socket clientSocket=SendCommandKeep("ListSongs "+String.valueOf(m_ListID));	
-				BufferedReader socketIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(),"gbk"));
+				BufferedReader socketIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 				
 				m_ListSongs=new ArrayList<String>();
 				
@@ -438,7 +438,7 @@ public class MainActivity extends ActionBarActivity {
 				{
 					String line=socketIn.readLine();
 					if (line.equals("#End")) break;
-					m_ListSongs.add(new String(line.getBytes("gbk"),"gbk"));
+					m_ListSongs.add(line);
 				}
 				clientSocket.close();			
 			 
