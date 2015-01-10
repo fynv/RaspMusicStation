@@ -252,7 +252,7 @@ int HostProcess(pid_t listenerID, FILE* fout, FILE* fin)
         {
           se.Send("playing\n",8);
           cfbInfo.m_CDStatusSocket.m_resetSocket=true;
-		  SendCommand("CurTrack",fout, cmd_lock);
+		  		SendCommand("CurTrack",fout, cmd_lock);
           sem_wait(&cfbInfo.m_CDStatusSocket.m_finish_sem);
           cfbInfo.m_CDStatusSocket.m_se=se;
           sem_post(&cfbInfo.m_CDStatusSocket.m_start_sem);
@@ -262,13 +262,13 @@ int HostProcess(pid_t listenerID, FILE* fout, FILE* fin)
           se.Send("notplaying\n",11);
         }
       }      
-	  else if (s_command=="ResetListWatch")
+	  	else if (s_command=="ResetListWatch")
       {
         if (cfbInfo.m_ListStatusSocket.m_se.IsValid())
         {
           se.Send("playing\n",8);
           cfbInfo.m_ListStatusSocket.m_resetSocket=true;
-		  SendCommand("CurSong",fout, cmd_lock);
+		  		SendCommand("CurSong",fout, cmd_lock);
           sem_wait(&cfbInfo.m_ListStatusSocket.m_finish_sem);
           cfbInfo.m_ListStatusSocket.m_se=se;
           sem_post(&cfbInfo.m_ListStatusSocket.m_start_sem);
@@ -294,20 +294,20 @@ int HostProcess(pid_t listenerID, FILE* fout, FILE* fin)
           sem_post(&cfbInfo.m_CDListSocket.m_start_sem);
           sem_wait(&cfbInfo.m_CDListSocket.m_finish_sem);
         } 
-		else if (s_command=="PlayList")
+				else if (s_command=="PlayList")
         {
           sem_wait(&cfbInfo.m_ListStatusSocket.m_finish_sem);
           cfbInfo.m_ListStatusSocket.m_resetSocket=false;
           cfbInfo.m_ListStatusSocket.m_se=se;
           sem_post(&cfbInfo.m_ListStatusSocket.m_start_sem);
         }
-		else if (s_command=="ListLists")
+				else if (s_command=="ListLists")
         {
           cfbInfo.m_ListListsSocket.m_se=se;
           sem_post(&cfbInfo.m_ListListsSocket.m_start_sem);
           sem_wait(&cfbInfo.m_ListListsSocket.m_finish_sem);
         } 
-		else if (s_command=="ListSongs")
+				else if (s_command=="ListSongs")
         {
           cfbInfo.m_ListSongsSocket.m_se=se;
           sem_post(&cfbInfo.m_ListSongsSocket.m_start_sem);

@@ -1,0 +1,182 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no" />
+<link rel = "Shortcut Icon" href="images/ic_launcher.png"> 
+<title>Raspberry Pi Music Station</title>
+
+<style>
+body {TEXT-ALIGN: center;}
+
+#light{
+	background-color:#FFF;
+	border:1px solid #dedede;
+	padding:10px;
+	margin-top:10%;}	
+
+.button, .button:visited {
+	TEXT-ALIGN: left;
+	margin-left: auto;
+	margin-right: auto;
+	margin-top: 10px;
+	background: #222 url(images/overlay.png) repeat-x; 
+	display: inline-block; 
+	padding: 5px 10px 6px; 
+	color: #fff; 
+	text-decoration: none;
+	-moz-border-radius: 6px; 
+	-webkit-border-radius: 6px;
+	-moz-box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+	-webkit-box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+	text-shadow: 0 -1px 1px rgba(0,0,0,0.25);
+	border-bottom: 1px solid rgba(0,0,0,0.25);
+	position: relative;
+	cursor: pointer
+}
+ 
+	.button:hover							{ background-color: #111; color: #fff; }
+	.button:active							{ top: 1px; }
+	.small.button, .small.button:visited 			{ font-size: 11px}
+	.button, .button:visited,
+	.medium.button, .medium.button:visited 		{ font-size: 13px; 
+												  font-weight: bold; 
+												  line-height: 1; 
+												  text-shadow: 0 -1px 1px rgba(0,0,0,0.25); 
+												  }
+												  
+	.large.button, .large.button:visited 			{ font-size: 14px;  width:80%;	
+													  padding: 8px 14px 9px; }
+													  
+	.super.button, .super.button:visited 			{ font-size: 34px; 
+													  padding: 8px 14px 9px; }
+	
+	.pink.button, .magenta.button:visited		{ background-color: #e22092; }
+	.pink.button:hover							{ background-color: #c81e82; }
+	.green.button, .green.button:visited		{ background-color: #91bd09; }
+	.green.button:hover						    { background-color: #749a02; }
+	.red.button, .red.button:visited			{ background-color: #e62727; }
+	.red.button:hover							{ background-color: #cf2525; }
+	.orange.button, .orange.button:visited		{ background-color: #ff5c00; }
+	.orange.button:hover						{ background-color: #d45500; }
+	.blue.button, .blue.button:visited		    { background-color: #2981e4; }
+	.blue.button:hover							{ background-color: #2575cf; }
+	.yellow.button, .yellow.button:visited		{ background-color: #ffb515; }
+	.yellow.button:hover						{ background-color: #fc9200; }
+		</style> 
+        
+</head>
+
+<body>
+
+<div id="light">
+<img src="images/ic_launcher.png" width="80" height="80">
+<p>Raspberry Pi Music Station</p>
+
+<div class="large button orange" onclick="window.location.href='playcd.html'"> 
+ <img src="images/cd.png" width="60" height="60">CD Music</div>
+
+<div class="large button orange" onclick="window.location.href='listlists.html'"> 
+ <img src="images/storage.png" width="60" height="60">Storage Music </div>
+ 
+ <div style="padding-top:5px; padding-bottom:5px;">
+ <input id="URLInput" type="text" style="width:60%"/>
+ <button onClick="OnPlayURL()">Play URL</button>
+  </div>
+   <div style="padding-top:5px; padding-bottom:5px;">
+ <button type="button" onclick="OnStop()"><img src="images/stop.png" width="30" height="30"></button>
+ <button type="button" onclick="OnVolDown()"><img src="images/down.png" width="30" height="30"></button>
+ <button type="button" onclick="OnVolUp()"><img src="images/up.png" width="30" height="30"></button>
+ </div>
+ 
+ <div>
+ <span class="small button blue" onclick="OnReboot()"> 
+ <img src="images/reboot.png" width="40" height="40">Reboot</span>
+ <span class="small button blue" onclick="OnShutdown()"> 
+ <img src="images/shutdown.png" width="40" height="40">Shutdown</span>
+ </div>
+   
+</div>
+
+<script>
+	function get_appropriate_ws_url()
+	{
+		var pcol;
+		var u = document.URL;
+	
+		/*
+		 * We open the websocket encrypted if this page came on an
+		 * https:// url itself, otherwise unencrypted
+		 */
+	
+		if (u.substring(0, 5) == "https") {
+			pcol = "wss://";
+			u = u.substr(8);
+		} else {
+			pcol = "ws://";
+			if (u.substring(0, 4) == "http")
+				u = u.substr(7);
+		}
+	
+		u = u.split('/');
+	
+		/* + "/xxx" bit is for IE10 workaround */
+	
+		return pcol + u[0] + "/xxx";
+	}
+	
+	function SendCommand(cmd)
+	{
+		var socket;
+
+		if (typeof MozWebSocket != "undefined") 
+		{
+			socket = new MozWebSocket(get_appropriate_ws_url(),
+					   "Play-protocol");
+		} 
+		else 
+		{
+			socket = new WebSocket(get_appropriate_ws_url(),
+					   "Play-protocol");
+		}
+		socket.onopen = function() 
+		{
+			socket.send(cmd);
+		}		
+	}
+	
+	function OnPlayURL()
+	{
+		var url=document.getElementById("URLInput").value;
+		SendCommand("PlayURL "+url);
+	}
+	
+	function OnVolDown()
+	{
+		SendCommand("VolDown");	
+	}
+	
+	function OnVolUp()
+	{
+		SendCommand("VolUp");	
+	}
+		
+	function OnStop()
+	{
+		SendCommand("Stop");	
+	}
+
+	function OnReboot() 
+	{
+		SendCommand("Reboot");
+	}
+	function OnShutdown() 
+	{
+		SendCommand("Shutdown");
+	}
+	
+	
+
+</script>
+</body>
+</html>

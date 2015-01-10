@@ -1,0 +1,151 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no" />
+<link rel = "Shortcut Icon" href="images/ic_launcher.png"> 
+<title>Raspberry Pi Music Station</title>
+        
+</head>
+
+<body onLoad="OnLoad()">
+<div style="padding-bottom:5px">
+	<span style="display:inline-block; width:30%;" >Lists:</span>
+	<button style="padding:10px" type="button" onclick="OnUpdatePod()">Update Podcast</button>
+</div>
+<div id="IdList" style="overflow-y:auto;">
+</div>
+
+
+<script>
+	function get_appropriate_ws_url()
+	{
+		var pcol;
+		var u = document.URL;
+	
+		/*
+		 * We open the websocket encrypted if this page came on an
+		 * https:// url itself, otherwise unencrypted
+		 */
+	
+		if (u.substring(0, 5) == "https") {
+			pcol = "wss://";
+			u = u.substr(8);
+		} else {
+			pcol = "ws://";
+			if (u.substring(0, 4) == "http")
+				u = u.substr(7);
+		}
+	
+		u = u.split('/');
+	
+		/* + "/xxx" bit is for IE10 workaround */
+	
+		return pcol + u[0] + "/xxx";
+	}
+	function SendCommandKeep(cmd, func)
+	{
+		var socket;
+
+		if (typeof MozWebSocket != "undefined") 
+		{
+			socket = new MozWebSocket(get_appropriate_ws_url(),
+					   "Play-protocol");
+		} 
+		else 
+		{
+			socket = new WebSocket(get_appropriate_ws_url(),
+					   "Play-protocol");
+		}
+		socket.onmessage = func;
+		socket.onopen = function() 
+		{
+			socket.send(cmd);
+		}	
+		return socket;
+	}
+	
+	function SendCommand(cmd)
+	{
+		var socket;
+
+		if (typeof MozWebSocket != "undefined") 
+		{
+			socket = new MozWebSocket(get_appropriate_ws_url(),
+					   "Play-protocol");
+		} 
+		else 
+		{
+			socket = new WebSocket(get_appropriate_ws_url(),
+					   "Play-protocol");
+		}
+		socket.onopen = function() 
+		{
+			socket.send(cmd);
+			socket.close();
+		}	
+	}
+	var updatingList=false;
+	var ListLists;
+	
+	function GotoList(i)
+	{
+		sessionStorage.setItem("current_storage_list_id", i); 
+		sessionStorage.setItem("current_storage_list_name", ListLists[i]); 
+		window.location.href='listsongs.html'
+	}
+	
+	function RefreshList()
+	{
+		document.getElementById("IdList").innerHTML ="";
+		var count=ListLists.length;
+		for (var i=0;i<count;i++)
+		{
+				document.getElementById("IdList").innerHTML+=
+						'<button type="button" style="width:100%; text-align:left; padding-top:10px; padding-bottom:10px" onclick="GotoList('+i+')">'+ListLists[i]+'</button>';
+		}
+	}	
+	
+	function UpdateList()
+	{
+		var se=SendCommandKeep("ListLists", function(msg)
+			{
+				if (!updatingList)
+				{
+					ListLists=new Array;
+					updatingList=true;
+				}
+				var s=msg.data.split('\n');
+				if (s[0]=="#End") 
+				{
+					updatingList=false;
+					se.close();
+					RefreshList();
+				}
+				else
+				{
+					ListLists.push(s[0]);
+				}
+			}	
+		);
+	}
+	
+	function OnLoad()
+	{
+		var total = document.documentElement.clientHeight;
+		var colHeight = total-20-document.getElementById("IdList").offsetTop;
+		document.getElementById("IdList").style.height=colHeight+"px";
+		UpdateList();
+	}
+	
+	
+	function OnUpdatePod()
+	{
+		SendCommand("UpdatePod");	
+	}
+	
+	
+</script>
+
+</body>
+</html>

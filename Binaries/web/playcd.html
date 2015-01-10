@@ -1,0 +1,356 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no" />
+<link rel = "Shortcut Icon" href="images/ic_launcher.png"> 
+<title>Raspberry Pi Music Station</title>
+        
+</head>
+
+<body onLoad="OnLoad()">
+
+<table>
+<tr>
+<td rowspan=2><canvas id="CDRotateCanvas" width="80" height="80">your browser does not support the canvas tag</canvas>  </td>
+<td><button type="button" onclick="OnRefresh()"><img src="images/refresh.png" width="30" height="30"></button></td>
+<td><button type="button" onclick="OnPlayCD()"><img src="images/play.png" width="30" height="30"></button></td>
+<td><button type="button" onclick="OnStop()"><img src="images/stop.png" width="30" height="30"></button></td>
+<td><button type="button" onclick="OnEject()"><img src="images/eject.png" width="30" height="30"></button></td>
+</tr>
+<tr>
+<td><button type="button" onclick="OnPrevTrack()"><img src="images/prev.png" width="30" height="30"></button></td>
+<td><button type="button" onclick="OnNextTrack()"><img src="images/next.png" width="30" height="30"></button></td>
+<td><button type="button" onclick="OnVolDown()"><img src="images/down.png" width="30" height="30"></button></td>
+<td><button type="button" onclick="OnVolUp()"><img src="images/up.png" width="30" height="30"></button></td>
+</tr>
+</table>
+<progress id="CDProgress" max=100 value=70 style="width:100%">
+</progress>
+
+<div id="IdList" style="overflow-y:auto;">
+</div>
+
+<script>
+	
+	function get_appropriate_ws_url()
+	{
+		var pcol;
+		var u = document.URL;
+	
+		/*
+		 * We open the websocket encrypted if this page came on an
+		 * https:// url itself, otherwise unencrypted
+		 */
+	
+		if (u.substring(0, 5) == "https") {
+			pcol = "wss://";
+			u = u.substr(8);
+		} else {
+			pcol = "ws://";
+			if (u.substring(0, 4) == "http")
+				u = u.substr(7);
+		}
+	
+		u = u.split('/');
+	
+		/* + "/xxx" bit is for IE10 workaround */
+	
+		return pcol + u[0] + "/xxx";
+	}
+	function SendCommandKeep(cmd, func)
+	{
+		var socket;
+
+		if (typeof MozWebSocket != "undefined") 
+		{
+			socket = new MozWebSocket(get_appropriate_ws_url(),
+					   "Play-protocol");
+		} 
+		else 
+		{
+			socket = new WebSocket(get_appropriate_ws_url(),
+					   "Play-protocol");
+		}
+		socket.onmessage = func;
+		socket.onopen = function() 
+		{
+			socket.send(cmd);
+		}	
+		return socket;
+	}
+	
+	function SendCommand(cmd)
+	{
+		var socket;
+
+		if (typeof MozWebSocket != "undefined") 
+		{
+			socket = new MozWebSocket(get_appropriate_ws_url(),
+					   "Play-protocol");
+		} 
+		else 
+		{
+			socket = new WebSocket(get_appropriate_ws_url(),
+					   "Play-protocol");
+		}
+		socket.onopen = function() 
+		{
+			socket.send(cmd);
+			socket.close();
+		}	
+	}
+	var CDTrackSectors;
+	var CurrentTrackID=-1;
+	var CurrentSector=0;
+	var CDInfoUpdated=false;
+	var CDWatchPending=false;
+	var CDWatching=false;
+	var StopPending=false;
+	
+	function pad(num, n) 
+	{
+        return (new Array(n >(''+num).length ? (n - (''+num).length+1) : 0).join('0') + num);
+	}
+	
+	function RefreshList()
+	{
+		document.getElementById("IdList").innerHTML ="";
+		var count=CDTrackSectors.length;
+		for (var i=0;i<count;i++)
+		{
+			var seconds=CDTrackSectors[i]/75.0;
+   	    	var minutes=Math.floor(seconds/60.0);
+   	    	seconds-=minutes*60.0;
+   	    	seconds=Math.ceil(seconds);
+			
+			var trackStr='<span style="display:inline-block; width:40%; text-align:left">'
+			if (i==CurrentTrackID)
+				trackStr+="* ";
+			else
+	 			trackStr+="  ";
+			trackStr+="Track-"+(i+1);
+			trackStr+="</span><span>";
+			trackStr+=pad(minutes,2)+":"+pad(seconds,2);
+			trackStr+="</span>";
+			
+			document.getElementById("IdList").innerHTML+=
+					'<button type="button" style="width:100%; text-align:left; padding-top:10px; padding-bottom:10px" onclick="PlayCD('+i+')">'+trackStr+'</button>';
+			
+		}
+	}
+	
+	function UpdateList()
+	{
+		var se=SendCommandKeep("ListCD", function(msg)
+			{
+				//document.write(msg.data);
+				CDTrackSectors=new Array();
+				var s=msg.data.split(' ');
+				var count=parseInt(s[0]);
+				for (var i=0;i<count;i++)
+				{
+					CDTrackSectors.push(parseInt(s[i+1]));
+				}			
+				se.close();
+				RefreshList();
+			}	
+		);
+		CDInfoUpdated=true;	
+	}
+	
+	function UpdateCDProgress()
+	{
+		var totalSectors=100;
+		if (CurrentTrackID>=0)
+			 totalSectors=CDTrackSectors[CurrentTrackID];
+		document.getElementById("CDProgress").max=totalSectors-1;
+		document.getElementById("CDProgress").value=CurrentSector;
+	}
+	
+	var CDImage;
+	var rotateAngle=0.0;
+	var timerID=0;
+	
+ 	function draw_cd_rotate() 
+	{   
+		var canvas = document.getElementById('CDRotateCanvas'); 
+		var ctx = canvas.getContext("2d");
+		ctx.save();		
+		ctx.translate(40,40);
+		ctx.rotate(rotateAngle);
+		ctx.drawImage(CDImage, -40, -40,80,80); 
+		ctx.restore();
+		rotateAngle+=Math.PI/9;
+		if (rotateAngle>2.0*Math.PI) rotateAngle-=2.0*Math.PI;
+	}
+	
+	function SetCDRoate()
+	{
+		if (timerID!=0) clearInterval(timerID);
+		CDImage = new Image();  
+		CDImage.src = "images/cdrotate.png"; 		
+		timerID=setInterval(draw_cd_rotate,50);
+	}
+	
+	function SetCDStop()
+	{
+		if (timerID!=0) clearInterval(timerID);
+		CDImage = new Image();  
+		CDImage.src = "images/cdstop.png"; 
+		CDImage.onload= function()
+		{
+			var canvas = document.getElementById('CDRotateCanvas'); 
+			var ctx = canvas.getContext("2d");
+			ctx.drawImage(CDImage, 0,0,80,80); 
+		}
+		timerID=0
+	}
+	
+	
+	function OnLoad()
+	{
+		var total = document.documentElement.clientHeight;
+		var colHeight = total-20-document.getElementById("IdList").offsetTop;
+		document.getElementById("IdList").style.height=colHeight+"px";
+		UpdateList();
+		ResetCDWatch();				
+	}
+	
+	function OnRefresh()
+	{
+		UpdateList();
+		ResetCDWatch();
+	}
+	
+	var PlayCDSession;
+	function CDNotPlaying()
+	{
+		CurrentTrackID=-1;
+		CurrentSector=0;
+		RefreshList();	
+		UpdateCDProgress();
+		CDWatching=false;
+		StopPending=false;
+		SetCDStop();
+	}
+	function OnCDMsg(msg)
+	{
+		if (!CDWatching)
+		{
+			CDWatching=true;
+			CDWatchPending=false;
+			SetCDRoate();
+		}
+		var s=msg.data.split(/[' ' '\n']/);
+		if (s.length<1) return;
+		if (s[0]=="Over")
+		{
+			PlayCDSession.close();
+			CDNotPlaying();
+			return;
+		}
+		else if (s[0]=="track")
+		{
+			if (s.length<2) return;
+			CurrentTrackID=parseInt(s[1]);
+			RefreshList();
+			document.getElementById("CDProgress").value=0;
+		}
+		else if (s[0]=="sector")
+		{
+			if (s.length<2) return;
+			CurrentSector=parseInt(s[1]);
+			UpdateCDProgress();
+		}
+	}
+	
+	function PlayCD(i)
+	{
+		if (CDWatchPending) return;
+		if (StopPending)
+		{
+			setTimeout(function(){PlayCD(i);},10);
+			return;
+		}
+		if (CDWatching)
+		{
+			SendCommand("Stop");
+			StopPending=true;
+			setTimeout(function(){PlayCD(i);},10);
+		}
+		else
+		{
+			if (!CDInfoUpdated) UpdateList();
+			PlayCDSession=SendCommandKeep("PlayCD "+i,OnCDMsg);	
+			CDWatchPending=true;
+		}
+	}
+	
+	function ResetCDWatch()
+	{
+		if (!CDWatching)
+		{
+			PlayCDSession=SendCommandKeep("ResetCDWatch",	
+				function(msg)
+				{
+					var s=msg.data.split(/[' ' '\n']/);
+					if (s.length>0 && s[0]=="playing")
+					{
+						PlayCDSession.onmessage = OnCDMsg;
+						CDWatchPending=true;
+					}
+					else if (s.length>0 && s[0]=="notplaying")
+					{
+						PlayCDSession.close();
+						CDNotPlaying();
+					}
+					else OnCDMsg(msg);
+				}
+			);
+		}		
+	}
+	
+	function OnPlayCD()
+	{
+		 PlayCD(0);
+	}
+	
+	function OnStop()
+	{
+		SendCommand("Stop");	
+	}
+	
+	function OnEject()
+	{
+		SendCommand("Eject");	
+		CDInfoUpdated=false;
+		CDTrackSectors=new Array;
+		RefreshList();
+	}
+	
+	function OnPrevTrack()
+	{
+		SendCommand("PrevTrack");	
+	}
+	
+	function OnNextTrack()
+	{
+		SendCommand("NextTrack");	
+	}
+	
+	function OnVolDown()
+	{
+		SendCommand("VolDown");	
+	}
+	
+	function OnVolUp()
+	{
+		SendCommand("VolUp");	
+	}
+		
+	
+</script>
+
+</body>
+</html>
