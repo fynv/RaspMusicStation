@@ -501,7 +501,7 @@ callback_Play(struct libwebsocket_context *context,
 				unsigned char buf[LWS_SEND_BUFFER_PRE_PADDING + 1024 +
 								  LWS_SEND_BUFFER_POST_PADDING];
 				unsigned char *p = &buf[LWS_SEND_BUFFER_PRE_PADDING];						
-				while (!_queue->empty() && lws_partial_buffered (wsi)!=1) 
+				if (!_queue->empty() && lws_partial_buffered (wsi)!=1) 
 				{
 					string s=_queue->front();
 					_queue->pop();
