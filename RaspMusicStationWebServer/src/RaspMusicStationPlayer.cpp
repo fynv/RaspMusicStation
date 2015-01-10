@@ -108,7 +108,10 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
     {
         if (slaveOut) 
         {
-          fputc('q',slaveOut);     
+        	if (waitpid(pid,0,WNOHANG)==0)
+        	{
+          	fputc('q',slaveOut);
+          }     
           waitpid(pid,0,0);   
           void* ret;
           pthread_join(PlayBackMonitorThreadID,&ret);    
@@ -172,10 +175,13 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
     {
         if (slaveOut && pbstatus==CD) 
         {
-			fputc('q',slaveOut);
-			waitpid(pid,0,0);
-			void* ret;
-			pthread_join(PlayBackMonitorThreadID,&ret);            
+        	if (waitpid(pid,0,WNOHANG)==0)
+        	{
+          	fputc('q',slaveOut);
+          }     
+					waitpid(pid,0,0);
+					void* ret;
+					pthread_join(PlayBackMonitorThreadID,&ret);            
           fclose(slaveIn);
           fclose(slaveOut);
           slaveIn=0;
