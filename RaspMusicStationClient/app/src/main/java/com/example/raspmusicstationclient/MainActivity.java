@@ -7,7 +7,6 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.List;
 
 import android.support.v7.app.ActionBarActivity;
 import android.text.Editable;
@@ -18,16 +17,17 @@ import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.LinearInterpolator;
 import android.view.animation.RotateAnimation;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.WebResourceResponse;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -35,7 +35,6 @@ import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TabHost;
@@ -164,7 +163,7 @@ public class MainActivity extends ActionBarActivity {
 	
 	private int m_RecievedIPByteCount;
 	
-	private IPDecodeFromAudio m_IPDecoder;
+	//private IPDecodeFromAudio m_IPDecoder;
 	
 	private Boolean m_ListListsUpdated=false;
 	private ArrayList<String> m_ListLists;
@@ -756,7 +755,7 @@ public class MainActivity extends ActionBarActivity {
 		 }
 	 }
 	 
-	  private Handler RecieveIPByteHandler = new Handler(new Handler.Callback() {
+	/*  private Handler RecieveIPByteHandler = new Handler(new Handler.Callback() {
 			public boolean handleMessage(Message msg) {
 			         switch (msg.what) {
 			        case 1:
@@ -780,7 +779,7 @@ public class MainActivity extends ActionBarActivity {
 			      break;
 			         }
 			         return true;
-			}});
+			}});*/
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -789,7 +788,7 @@ public class MainActivity extends ActionBarActivity {
 		
 		SharedPreferences settings = getSharedPreferences("RaspMusicStationClient", 0);  
 		m_host = settings.getString("Host", "192.168.10.3");
-		m_home_page = settings.getString("Home_page", "http://music.baidu.com");
+		m_home_page = settings.getString("Home_page", "http://music.qq.com");
 		
 		EditText editHost = (EditText) findViewById(R.id.editTextHost);  
 		editHost.setText(m_host);
@@ -1171,17 +1170,17 @@ public class MainActivity extends ActionBarActivity {
       
      ////////////////
       
-      m_IPDecoder=new IPDecodeFromAudio(new IPByteReciever(){
+      /*m_IPDecoder=new IPDecodeFromAudio(new IPByteReciever(){
     	  public void RecieveByte(int value)
     	  {
     		  Message notifyMsg = RecieveIPByteHandler.obtainMessage(1, value, 0, null) ;
     		  RecieveIPByteHandler.sendMessage(notifyMsg) ;
     	  }
-      });
+      });*/
       
-      ToggleButton btnListenIP=(ToggleButton)findViewById(R.id.btnListenIP);   
+      /*ToggleButton btnListenIP=(ToggleButton)findViewById(R.id.btnListenIP);
       
-      btnListenIP.setOnCheckedChangeListener(new OnCheckedChangeListener(){              
+      btnListenIP.setOnCheckedChangeListener(new OnCheckedChangeListener(){
 		       public void onCheckedChanged(CompoundButton buttonView,boolean isChecked) {   
 		    	   if (isChecked) 
 		    	   {
@@ -1194,7 +1193,7 @@ public class MainActivity extends ActionBarActivity {
 		               
 		          }                      
        		}
-      );      
+      );   */
       
          
 	  
@@ -1202,18 +1201,28 @@ public class MainActivity extends ActionBarActivity {
       WebView myWebView = (WebView) findViewById(R.id.webview);
       WebSettings webSettings = myWebView.getSettings();
       webSettings.setJavaScriptEnabled(true);
-      
-      myWebView.setWebViewClient(new WebViewClient(){       
-          public boolean shouldOverrideUrlLoading(WebView view, String url) {       
-	              if (url.indexOf(".mp3")>0)
-	              {   
-	            	  RunPlayThread(new PlayURLRunnable(url));		            	  
-	                  return true; 
-	              }
-	              return false;
-	          }       
-      	}
-      );   
+		webSettings.setDomStorageEnabled(true);
+
+      myWebView.setWebViewClient(new WebViewClient() {
+			 @Override
+			 public boolean shouldOverrideUrlLoading(WebView view, String url) {
+				 if (url.contains(".mp3") || url.contains(".m4a")) {
+					 RunPlayThread(new PlayURLRunnable(url));
+					 return true;
+				 }
+				 return false;
+			 }
+
+			 @Override
+			 public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+				 if (url.contains(".mp3") || url.contains(".m4a")) {
+					 RunPlayThread(new PlayURLRunnable(url));
+					 return new WebResourceResponse("audio", "mp3", null);
+				 }
+				 return null;
+			 }
+		 }
+      );
       
       myWebView.loadUrl(m_home_page);
 		

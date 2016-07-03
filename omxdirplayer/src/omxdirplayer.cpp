@@ -203,6 +203,9 @@ struct PlaybackParam
     bool resetID;
 	bool m_IsPlaying;
 	FeedBackStuff fbstuff;
+	unsigned long long playStartTime;
+
+	pthread_mutex_t lock;
 
   FILE *fout;
   FILE *fin;
@@ -218,24 +221,40 @@ void* PlaybackThread(void* info)
 		if (!param->m_IsPlaying) break;
 		do
 		{
-		   if (param->m_songID>=n) param->m_songID=n-1;
-		   if (param->m_songID<0) param->m_songID=0;
+			int songID = param->m_songID;
+			if (songID >= n) songID = n - 1;
+			if (songID<0) songID = 0;
+
+			pthread_mutex_lock(&param->lock);
 		   param->resetID=false;
 		   param->m_IsPlaying=true;
+		   param->m_songID = songID;
+		   pthread_mutex_unlock(&param->lock);
+
 		   char feedback[1024];
-		   sprintf(feedback,"song %d %d", param->m_listID, param->m_songID);
+		   sprintf(feedback, "song %d %d", param->m_listID, songID);
 		   SendFeedback(feedback,param->fbstuff); 
 		   char fullPath[2048];
-		   sprintf(fullPath,"%s/%s",param->songpath.data(),param->listSongs[param->m_songID].data());
-
+		   sprintf(fullPath, "%s/%s", param->songpath.data(), param->listSongs[songID].data());
+		   
+		   param->playStartTime = GetUSec();
 			  param->pid=LaunchChild(param->fout,param->fin); 
 			  if (param->pid==0)
 			  {
 				execlp("omxplayer","omxplayer", fullPath,0);
 			  }
-			  else
+			  else 
 			  {
-				waitpid(param->pid,0,0);
+				  char buffer[1024];
+				  while (1)
+				  {
+					  if (!fgets(buffer, 1024, param->fin)) break;
+				  }
+				  WaitKill(param->pid, 250000);
+				  fclose(param->fin);
+				  fclose(param->fout);
+				  param->fin = 0;
+				  param->fout = 0;
 			  }  
 
 		}
@@ -306,9 +325,12 @@ void PlayList(const char* path, int listID, int startID, FILE* fin, FeedBackStuf
     playParam.resetID=false;
 	playParam.m_IsPlaying=true;
 	playParam.fbstuff=fbstuff;
+	playParam.playStartTime = 0;
 
 	playParam.fout=0;
 	playParam.fin=0;
+
+	pthread_mutex_init(&playParam.lock, NULL);
 
 	pthread_create(&PlaybackThreadID,NULL,PlaybackThread,&playParam);
 
@@ -317,9 +339,15 @@ void PlayList(const char* path, int listID, int startID, FILE* fin, FeedBackStuf
     char cmd=fgetc(fin);
     if (cmd=='q' || cmd=='Q')
     {
-      playParam.m_IsPlaying=false;
+       unsigned long long passed = GetUSec() - playParam.playStartTime;
+	  if (passed < 500000) usleep(500000 - passed);
+
 	  if (playParam.fout)
 		  fputc('q',playParam.fout);
+	  pthread_mutex_lock(&playParam.lock);
+	  playParam.resetID = false;
+	  playParam.m_IsPlaying = false;
+	  pthread_mutex_unlock(&playParam.lock);
 
       void* ret;
       pthread_join(PlaybackThreadID,&ret); 
@@ -337,18 +365,28 @@ void PlayList(const char* path, int listID, int startID, FILE* fin, FeedBackStuf
     }
 	else if (cmd=='>' || cmd=='.')
     {
+		unsigned long long passed = GetUSec() - playParam.playStartTime;
+		if (passed < 500000) usleep(500000 - passed);
+
+		pthread_mutex_lock(&playParam.lock);
       playParam.resetID=true;
       playParam.m_songID++;
       playParam.m_IsPlaying=false;
+	  pthread_mutex_unlock(&playParam.lock);
+
 	  if (playParam.fout)
 		  fputc('q',playParam.fout);
     }
     else if (cmd=='<' || cmd==',')
     {
+		unsigned long long passed = GetUSec() - playParam.playStartTime;
+		if (passed < 500000) usleep(500000 - passed);
+		pthread_mutex_lock(&playParam.lock);
       playParam.resetID=true;
       playParam.m_songID--;
       playParam.m_IsPlaying=false;
-	   if (playParam.fout)
+	  pthread_mutex_unlock(&playParam.lock);
+      if (playParam.fout)
 		  fputc('q',playParam.fout);
     }  
 	else if (cmd=='t' || cmd=='T')

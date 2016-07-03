@@ -74,10 +74,9 @@ void PlaySound(const char* snd)
   }
   else
   {
-    waitpid(pid,0,0);
+	  waitpid(pid, 0, 0);
   }  
 }
-
 
 void SendFeedback(const char* feedback, FeedBackStuff stuff)
 {
@@ -86,6 +85,29 @@ void SendFeedback(const char* feedback, FeedBackStuff stuff)
    fputc('\n',stuff.m_fout);
    fflush(stuff.m_fout);
    pthread_mutex_unlock(&stuff.m_lock);  
+}
+
+unsigned long long GetUSec()
+{
+	timeval tv;
+	gettimeofday(&tv, NULL);
+	return tv.tv_sec * 1000000 + tv.tv_usec;
+}
+
+void WaitKill(pid_t pid, unsigned long long uDuration, unsigned long long uInterval)
+{
+	unsigned long long startTime = GetUSec();
+	while (waitpid(pid, 0, WNOHANG) == 0)
+	{
+		unsigned long long curTime = GetUSec();
+		if (curTime - startTime > uDuration)
+		{
+			kill(pid, SIGINT);
+			break;
+		}
+		usleep(uInterval);
+	}
+	waitpid(pid, 0, 0);
 }
 
 

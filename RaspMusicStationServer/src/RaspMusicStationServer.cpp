@@ -41,9 +41,10 @@ void* HostProcess_CommandFeedBackThread(void* info)
       *pos = '\0';
     if (-1==sscanf(buffer,"%s",command)) continue;
     string s_command=command;
-    if (s_command=="URLPlayBack")
+    /*if (s_command=="URLPlayBack")
       printf("%s\n",buffer+12);
-    else if (s_command=="CDTrackInfo")
+    else */
+	if (s_command=="CDTrackInfo")
     {
       char* pinfo=buffer+12;
       sem_wait(&tInfo->m_CDListSocket.m_start_sem);
@@ -318,6 +319,21 @@ int HostProcess(pid_t listenerID, FILE* fout, FILE* fin)
     }
   }
   pthread_mutex_destroy(&cmd_lock);  
+
+  sem_destroy(&cfbInfo.m_CDStatusSocket.m_finish_sem);
+  sem_destroy(&cfbInfo.m_CDStatusSocket.m_start_sem);
+
+  sem_destroy(&cfbInfo.m_CDListSocket.m_finish_sem);
+  sem_destroy(&cfbInfo.m_CDListSocket.m_start_sem);
+
+  sem_destroy(&cfbInfo.m_ListStatusSocket.m_finish_sem);
+  sem_destroy(&cfbInfo.m_ListStatusSocket.m_start_sem);
+
+  sem_destroy(&cfbInfo.m_ListListsSocket.m_finish_sem);
+  sem_destroy(&cfbInfo.m_ListListsSocket.m_start_sem);
+
+  sem_destroy(&cfbInfo.m_ListSongsSocket.m_finish_sem);
+  sem_destroy(&cfbInfo.m_ListSongsSocket.m_start_sem);
   
   return 0;
 }
@@ -341,15 +357,15 @@ void PlayIP(const unsigned char ip[4])
   }
   else
   {
-    waitpid(pid,0,0);
+	  waitpid(pid, 0,0);
   }  
 }
 
 int main()
 {
   unsigned char ip[4];
-  if (GetIP(ip))
-	  PlayIP(ip);
+  /*if (GetIP(ip))
+	  PlayIP(ip);*/
 
   PlaySound("start.mp3");
   //return CommandListenerProcess(stdout,stdin);

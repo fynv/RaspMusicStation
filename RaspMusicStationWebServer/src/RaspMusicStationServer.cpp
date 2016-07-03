@@ -705,8 +705,8 @@ void PlayIP(const unsigned char ip[4])
 int main()
 {
 	unsigned char ip[4];
-  if (GetIP(ip))
-	  PlayIP(ip);
+  /*if (GetIP(ip))
+	  PlayIP(ip);*/
 	  
   PlaySound("start.mp3");
   //return CommandListenerProcess(stdout,stdin);

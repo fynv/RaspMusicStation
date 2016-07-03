@@ -92,6 +92,8 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
 
   PlayBackStatus pbstatus=NO;
 
+  unsigned long long playStartTime = 0;
+
   while (1)
   {
     char buffer[4096];
@@ -104,16 +106,29 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
     if (-1==sscanf(buffer,"%s",command)) continue;
     string s_command=command;
 
+	if (slaveOut)
+	{
+		if (waitpid(pid, 0, WNOHANG) != 0)
+		{
+			void* ret;
+			pthread_join(PlayBackMonitorThreadID, &ret);
+			fclose(slaveIn);
+			fclose(slaveOut);
+			slaveIn = 0;
+			slaveOut = 0;
+			pbstatus = NO;
+		}
+	}
+
     if (s_command=="PlayURL" || s_command=="PlayCD" || s_command=="PlayList" || s_command=="Stop" || s_command=="Quit")
     {
         if (slaveOut) 
         {
-        	if (waitpid(pid,0,WNOHANG)==0)
-        	{
-          	fputc('q',slaveOut);
-          }     
-          waitpid(pid,0,0);   
-          void* ret;
+			unsigned long long passed = GetUSec() - playStartTime;
+			if (passed < 500000) usleep(500000 - passed);
+			fputc('q', slaveOut);
+			WaitKill(pid, 500000);
+          void* ret;		
           pthread_join(PlayBackMonitorThreadID,&ret);    
           fclose(slaveIn);
           fclose(slaveOut);
@@ -126,6 +141,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
         {
           PlaySound("beep.mp3");
           char* p_url=buffer+8;
+		  playStartTime = GetUSec();
           pid=LaunchChild(slaveOut,slaveIn);    
           if (pid==0)
           {
@@ -133,6 +149,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
           }
           // start play-back monitor thread
           pbtParam.m_fin=slaveIn;  
+
           pthread_create(&PlayBackMonitorThreadID,NULL,URLPlayBackMonitorThread,&pbtParam);
           pbstatus=URL;
         }
@@ -142,6 +159,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
           if (strlen(buffer)>7) sscanf(buffer+7,"%d",&startTrack);
           char startTrackID[10]; sprintf(startTrackID,"%d",startTrack);
           PlaySound("beep.mp3");
+		  playStartTime = GetUSec();
           pid=LaunchChild(slaveOut,slaveIn);    
           if (pid==0)
           {
@@ -149,6 +167,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
           }
           // start play-back monitor thread
           pbtParam.m_fin=slaveIn;  
+
           pthread_create(&PlayBackMonitorThreadID,NULL,CDPlayBackMonitorThread,&pbtParam);
           pbstatus=CD;
         }
@@ -160,6 +179,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
 		  		char listID[10]; sprintf(listID,"%d",list);
           char startSongID[10]; sprintf(startSongID,"%d",startSong);
           PlaySound("beep.mp3");
+		  playStartTime = GetUSec();
           pid=LaunchChild(slaveOut,slaveIn);    
           if (pid==0)
           {
@@ -167,6 +187,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
           }
           // start play-back monitor thread
           pbtParam.m_fin=slaveIn;  
+
           pthread_create(&PlayBackMonitorThreadID,NULL,ListPlayBackMonitorThread,&pbtParam);
           pbstatus=List;
         }
@@ -175,20 +196,19 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
     {
         if (slaveOut && pbstatus==CD) 
         {
-        	if (waitpid(pid,0,WNOHANG)==0)
-        	{
-          	fputc('q',slaveOut);
-          }     
-					waitpid(pid,0,0);
-					void* ret;
-					pthread_join(PlayBackMonitorThreadID,&ret);            
+			unsigned long long passed = GetUSec() - playStartTime;
+			if (passed < 500000) usleep(500000 - passed);
+			fputc('q', slaveOut);
+			WaitKill(pid, 500000);
+			void* ret;
+			pthread_join(PlayBackMonitorThreadID,&ret);            
           fclose(slaveIn);
           fclose(slaveOut);
           slaveIn=0;
           slaveOut=0;
           pbstatus=NO;
         } 
-        system("eject /dev/sr0");
+        system("eject /dev/cdrom");
     }
     else if (s_command=="VolDown" || s_command=="VolUp" || s_command=="NextTrack" || s_command=="PrevTrack" || s_command=="CurTrack" || s_command=="NextSong" || s_command=="PrevSong" || s_command=="CurSong")
     {
@@ -222,7 +242,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
        char buffer[4096];
        while (fgets(buffer,4096,listIn))
          SendFeedback(buffer, fbstuff);
-       waitpid(listPid,0,0);
+	   WaitKill(listPid, 500000);
     } 
 	else if (s_command=="ListLists")
 	{
@@ -237,7 +257,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
 	    char buffer[4096];
        while (fgets(buffer,4096,listIn))
          SendFeedback(buffer, fbstuff);
-      waitpid(listPid,0,0);
+	   WaitKill(listPid, 500000);
 	}
 	else if (s_command=="ListSongs")
 	{
@@ -256,7 +276,7 @@ int CommandListenerProcess(FILE* fout, FILE *fin)
 	    char buffer[4096];
        while (fgets(buffer,4096,listIn))
          SendFeedback(buffer, fbstuff);
-      waitpid(listPid,0,0);
+	   WaitKill(listPid, 500000);
 	}
 
   }

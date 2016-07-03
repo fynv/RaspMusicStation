@@ -8,7 +8,10 @@
 #include <sys/types.h>
 #include <string>
 #include <sys/wait.h>
-#include "pthread.h"
+#include <pthread.h>
+#include <time.h>
+#include <sys/time.h>
+#include <errno.h>
 
 using namespace std;
 
@@ -24,6 +27,9 @@ struct FeedBackStuff
 
 void SendFeedback(const char* feedback, FeedBackStuff stuff);
 
+unsigned long long GetUSec();
+
+void WaitKill(pid_t pid, unsigned long long uDuration, unsigned long long uInterval = 10000);
 
 #endif
 
