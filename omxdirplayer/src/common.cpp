@@ -102,7 +102,7 @@ void WaitKill(pid_t pid, unsigned long long uDuration, unsigned long long uInter
 		unsigned long long curTime = GetUSec();
 		if (curTime - startTime > uDuration)
 		{
-			kill(pid, SIGINT);
+			kill(pid, SIGKILL);
 			break;
 		}
 		usleep(uInterval);

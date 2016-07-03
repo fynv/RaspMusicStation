@@ -104,7 +104,7 @@ void WaitKill(pid_t pid, unsigned long long uDuration, unsigned long long uInter
 		if (curTime - startTime > uDuration)
 		{
 			printf("killing pid %d\n", pid);
-			kill(pid, SIGINT);
+			kill(pid, SIGKILL);
 			break;
 		}
 		usleep(uInterval);
